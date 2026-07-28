@@ -20,3 +20,4 @@ The course follows the official course description and extends it with modern AI
 | Week | My part | Folder |
 |---|---|---|
 | 1 | Cleaning + Normalization (LLM data pipeline, stage 2) | [`week1/`](week1/) |
+| 2 | RAG retrieval system over a Thai food Q&A dataset | [`week2/`](week2/) |
