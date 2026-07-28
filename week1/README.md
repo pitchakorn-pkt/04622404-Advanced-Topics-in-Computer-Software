@@ -24,4 +24,4 @@ Pulled with `git subtree` from [Automatic28m/Advance-AI-RAG](https://github.com/
 - 116730462016-0 Sakda Baokam
 - 116730462032-7 Praphavit Kaorak
 - 116730462033-5 Praphakorn Pitamma
-- 116730462035-0 Pichakorn Puangkunthod
+- 116730462035-0 Pitchakorn Phuadkhunthod
