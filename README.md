@@ -1,8 +1,21 @@
-# Advanced-Topics-in-Computer-Software
+# 04622404 Advanced-Topics-in-Computer-Software
 
-My coursework for Advanced Topics in Computer Software, organized into weekly folders and updated throughout the semester.
+This repository contains lab exercises, source code, assignments, projects, and additional learning resources.
 
-Team repository: [Automatic28m/Advance-AI-RAG](https://github.com/Automatic28m/Advance-AI-RAG)
+## Course Description 
+
+**New academic study in computer software.**
+
+The course follows the official course description and extends it with modern AI topics such as **LLM**, **RAG** and **Agentic AI**. It also includes hands-on labs, projects, and real-world applications. The complete list of topics is available in the **Course Contents** section.
+
+## Owner Information
+- 116730462035-0 Pitchakorn Phuadkhunthod
+- Computer Engineering Department, Engineering Faculty, RMUTT
+
+## Team Repository
+- Please check out this repository for team project https://github.com/Automatic28m/Advance-AI-RAG
+
+## Course Work
 
 | Week | My part | Folder |
 |---|---|---|
