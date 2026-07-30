@@ -1,17 +1,19 @@
 """Run the Embedding stage over the Metadata stage output.
 
-    python Pipeline/05_embedding.py
+    python Pipeline/05_embedding.py                       # local, no key needed
     python Pipeline/05_embedding.py --limit 20            # a cheap trial run
+    python Pipeline/05_embedding.py --provider gemini --dimension 1536
     python Pipeline/05_embedding.py --provider openai --model text-embedding-3-small
-    python Pipeline/05_embedding.py --dimension 768 --batch-size 50
 
 Reads Pipeline/outputs/metadata_*.json, writes embeddings_*.json next to them,
 and prints the cost of the run, the checks that every vector can still be
 traced back to the posting it came from, and a nearest-neighbour sample so the
 vectors can be seen to mean something.
 
-The API key is read from Pipeline/.env or the environment. If metadata_*.json
-is missing, run Pipeline/04_metadata.py first.
+The default provider runs in this process and needs no key. The API providers
+read theirs from Pipeline/.env or the environment, and are asked for a width
+with --dimension. If metadata_*.json is missing, run Pipeline/04_metadata.py
+first.
 """
 
 import argparse
@@ -55,7 +57,8 @@ def cosine(left, right):
 
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--provider", choices=sorted(PROVIDERS), default="gemini")
+    parser.add_argument("--provider", choices=sorted(PROVIDERS),
+                        default="sentence-transformers")
     parser.add_argument("--model", default=None, help="defaults to the provider's model")
     parser.add_argument(
         "--dimension",
