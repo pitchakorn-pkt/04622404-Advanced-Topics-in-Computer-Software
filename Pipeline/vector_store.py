@@ -59,6 +59,11 @@ DEFAULT_COLLECTION = "job_postings"
 
 DEFAULT_TOP_K = 5
 
+# What a collection is assumed to have been embedded with when it does not say.
+# Collections built before the provider was recorded were all Gemini, so an
+# index that predates this field still answers correctly.
+DEFAULT_PROVIDER = "gemini"
+
 # Gemini embeddings come back unit length, so cosine is the metric that matches
 # what the Embedding stage produced.
 DISTANCE_METRIC = "cosine"
@@ -127,6 +132,20 @@ def embedding_settings(records):
     return models.pop(), dimensions.pop()
 
 
+def embedding_provider(records):
+    """Return the provider every record was embedded with.
+
+    Kept apart from embedding_settings so callers that only want the model and
+    the width are unaffected. Records written before the provider was recorded
+    came from the API path, which was Gemini.
+    """
+    providers = {record.get("provider") or DEFAULT_PROVIDER for record in records}
+    assert len(providers) == 1, (
+        f"records were embedded by several providers: {sorted(providers)}"
+    )
+    return providers.pop()
+
+
 def flatten_metadata(record):
     """Build the Chroma payload for one record.
 
@@ -173,12 +192,16 @@ def get_client(persist_dir=PERSIST_DIR):
 
 
 def create_collection(client, name=DEFAULT_COLLECTION, dimension=None, model=None,
-                      reset=False):
+                      provider=None, reset=False):
     """Create (or reopen) the collection the vectors are indexed in.
 
     Chroma takes its width from the first vector added rather than from a
     declared schema, so the dimension the Embedding stage produced is recorded
     in the collection metadata and checked against the vectors on the way in.
+
+    The provider is recorded for the same reason the model is: a query has to
+    be embedded the way the corpus was, and two providers can produce vectors
+    of the same width that mean nothing to each other.
     """
     if reset:
         try:
@@ -192,6 +215,8 @@ def create_collection(client, name=DEFAULT_COLLECTION, dimension=None, model=Non
         metadata["dimension"] = dimension
     if model is not None:
         metadata["embedding_model"] = model
+    if provider is not None:
+        metadata["embedding_provider"] = provider
 
     return client.get_or_create_collection(name=name, metadata=metadata)
 
@@ -246,33 +271,41 @@ def build_where(filters):
     return clauses[0] if len(clauses) == 1 else {"$and": clauses}
 
 
-def embed_query(query, model, dimension, log=lambda *args: None):
-    """Embed one query with the model and width the corpus was embedded with.
+def embed_query(query, model, dimension, provider=DEFAULT_PROVIDER,
+                log=lambda *args: None):
+    """Embed one query with the provider, model and width the corpus used.
 
     This goes through the Embedding stage's own embed_texts so the query cannot
     drift onto a different model, a different width, or a different provider
     than the vectors it is being compared against.
+
+    A provider trained for asymmetric retrieval wants the query marked as a
+    query; it says so with a query_prefix, and the documents were embedded
+    without one. Providers that make no such distinction have no prefix and
+    the query goes through unchanged.
     """
+    embedder = PROVIDERS[provider]
+    text = getattr(embedder, "query_prefix", "") + query
     vectors, _ = embed_texts(
-        [query], provider="gemini", model=model, dimension=dimension, log=log
+        [text], provider=provider, model=model, dimension=dimension, log=log
     )
     return vectors[0]
 
 
 def search(collection, query, top_k=DEFAULT_TOP_K, filters=None, model=None,
-           dimension=None):
+           dimension=None, provider=None):
     """Return the top_k passages for a query, newest hit first.
 
     filters is a plain dict of metadata conditions; see build_where. Each hit
     carries the passage, its full payload and a similarity score, which is what
     build_prompt needs to write a citation.
     """
-    if model is None or dimension is None:
-        stored = collection.metadata or {}
-        model = model or stored.get("embedding_model")
-        dimension = dimension or stored.get("dimension")
+    stored = collection.metadata or {}
+    model = model or stored.get("embedding_model")
+    dimension = dimension or stored.get("dimension")
+    provider = provider or stored.get("embedding_provider") or DEFAULT_PROVIDER
 
-    vector = embed_query(query, model, dimension)
+    vector = embed_query(query, model, dimension, provider=provider)
     result = collection.query(
         query_embeddings=[vector],
         n_results=top_k,
