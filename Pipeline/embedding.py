@@ -73,6 +73,9 @@ DEFAULT_MAX_RETRIES = 5
 DEFAULT_BACKOFF = 1.0
 DEFAULT_TIMEOUT = 60
 
+# Sent on every request; see post_json for why the default will not do.
+USER_AGENT = "Advance-AI-RAG/1.0"
+
 CACHE_PATH = Path(__file__).resolve().parent / "embedding_cache" / "vectors.jsonl"
 
 # Status codes worth trying again: rate limiting and the transient server-side
@@ -396,7 +399,14 @@ class RateLimiter:
 
 
 def post_json(url, headers, body, timeout=DEFAULT_TIMEOUT):
-    """POST a JSON body and return the decoded response."""
+    """POST a JSON body and return the decoded response.
+
+    urllib announces itself as "Python-urllib/3.x", which Cloudflare rejects
+    outright on some endpoints -- a 403 carrying "error code: 1010", before
+    the request ever reaches the API. Naming the caller is enough to pass, and
+    is what any HTTP client would have sent anyway.
+    """
+    headers = {"User-Agent": USER_AGENT, **headers}
     data = json.dumps(body).encode("utf-8")
     request = urllib.request.Request(url, data=data, headers=headers, method="POST")
     with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -410,13 +420,22 @@ def post_with_retry(url, headers, body, max_retries=DEFAULT_MAX_RETRIES,
     Waits backoff, 2x, 4x ... with a little jitter so retries from several
     machines do not line up. Nothing from the request -- url aside -- is
     logged: the headers carry the API key.
+
+    What the server said, on the other hand, is worth every character. A bare
+    status tells you a request failed; the body tells you which quota ran out,
+    which model id no longer exists, or that the request never reached the API
+    at all. It is part of the response, never the request, so it carries no
+    key.
     """
     for attempt in range(max_retries + 1):
         try:
             return post_json(url, headers, body, timeout=timeout)
         except urllib.error.HTTPError as error:
             retriable = error.code in RETRY_STATUS
+            detail = error.read().decode("utf-8", "replace").strip()[:400]
             reason = f"HTTP {error.code}"
+            if detail:
+                log(f"    {reason}: {detail}")
         except (urllib.error.URLError, TimeoutError) as error:
             retriable = True
             reason = type(error).__name__
