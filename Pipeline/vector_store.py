@@ -39,6 +39,8 @@ import json
 import re
 from pathlib import Path
 
+from types import SimpleNamespace
+
 import chromadb
 
 from embedding import (
@@ -64,12 +66,28 @@ DEFAULT_TOP_K = 5
 # index that predates this field still answers correctly.
 DEFAULT_PROVIDER = "gemini"
 
-# Gemini embeddings come back unit length, so cosine is the metric that matches
-# what the Embedding stage produced.
+# Every provider the Embedding stage can use returns unit-length vectors, so
+# cosine is the metric that matches what it produced.
 DISTANCE_METRIC = "cosine"
 
-DEFAULT_LLM_MODEL = "gemini-2.5-flash"
-LLM_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+# Generation runs on Groq's OpenAI-compatible endpoint. The model id is not a
+# stable thing: Groq retires them, and a retired id answers 404 rather than
+# anything that reads like a bad model name. Check
+# https://console.groq.com/docs/models before changing it.
+#
+# The larger model is the default because of what this stage asks for. Every
+# claim has to carry the tag of the passage it came from, and llama-3.1-8b
+# was seen copying a UUID with one character wrong -- an answer that reads
+# perfectly and cites a posting that does not exist. The invented check
+# catches it, but a citation that has to be caught is not worth the speed.
+# --model llama-3.1-8b-instant is still there when the question is simple.
+DEFAULT_LLM_MODEL = "llama-3.3-70b-versatile"
+LLM_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
+
+# read_api_key only needs to be told which variable holds the key; naming the
+# generation provider here keeps that lookup, and its error message, identical
+# to the one the Embedding stage gives.
+LLM_PROVIDER = SimpleNamespace(name="groq", key_env="GROQ_API_KEY")
 
 # Scalar metadata fields copied onto every point. category is handled
 # separately because it is a list; source, id, chunk_index and chunk_count come
@@ -382,24 +400,18 @@ def call_llm(prompt, model=DEFAULT_LLM_MODEL, temperature=0.0, log=print):
     here the same way it is there. The key travels in the headers and nothing
     from the request is logged.
     """
-    api_key = read_api_key(PROVIDERS["gemini"])
-    url = LLM_ENDPOINT.format(model=model)
-    headers = {"Content-Type": "application/json", "x-goog-api-key": api_key}
+    api_key = read_api_key(LLM_PROVIDER)
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
     body = {
-        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "temperature": temperature,
-            # Grounded extraction from passages that are already in front of
-            # the model does not need a reasoning budget.
-            "thinkingConfig": {"thinkingBudget": 0},
-        },
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": temperature,
     }
-    payload = post_with_retry(url, headers, body, log=log)
+    payload = post_with_retry(LLM_ENDPOINT, headers, body, log=log)
 
-    candidates = payload.get("candidates") or []
-    assert candidates, f"the model returned no answer: {payload.get('promptFeedback')}"
-    parts = candidates[0].get("content", {}).get("parts") or []
-    return "".join(part["text"] for part in parts if "text" in part).strip()
+    choices = payload.get("choices") or []
+    assert choices, f"the model returned no answer: {payload}"
+    return (choices[0].get("message", {}).get("content") or "").strip()
 
 
 def cited_tags(text):

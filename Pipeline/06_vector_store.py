@@ -26,6 +26,7 @@ from vector_store import (
     build_prompt,
     citation_of,
     create_collection,
+    embedding_provider,
     embedding_settings,
     get_client,
     load_dotenv,
@@ -173,12 +174,14 @@ def main():
 
     records = load_records()
     model, dimension = embedding_settings(records)
-    print(f"input:      {len(records)} vectors, {model} at dimension {dimension}")
+    provider = embedding_provider(records)
+    print(f"input:      {len(records)} vectors, {provider}/{model} at dimension {dimension}")
     print(f"store:      {args.persist_dir}   collection {args.collection!r}\n")
 
     client = get_client(args.persist_dir)
     collection = create_collection(
-        client, name=args.collection, dimension=dimension, model=model, reset=args.reset
+        client, name=args.collection, dimension=dimension, model=model,
+        provider=provider, reset=args.reset
     )
     indexed = upsert(collection, records)
     print(f"indexed:    {indexed} points\n")
