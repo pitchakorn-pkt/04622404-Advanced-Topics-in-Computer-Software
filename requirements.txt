@@ -27,6 +27,7 @@ Pygments==2.20.0
 python-dateutil==2.9.0.post0
 pytz==2026.3
 pyzmq==27.1.0
+sentence-transformers==5.6.1
 six==1.17.0
 stack-data==0.6.3
 tornado==6.5.7

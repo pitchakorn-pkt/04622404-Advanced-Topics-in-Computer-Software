@@ -39,6 +39,8 @@ import json
 import re
 from pathlib import Path
 
+from types import SimpleNamespace
+
 import chromadb
 
 from embedding import (
@@ -59,12 +61,33 @@ DEFAULT_COLLECTION = "job_postings"
 
 DEFAULT_TOP_K = 5
 
-# Gemini embeddings come back unit length, so cosine is the metric that matches
-# what the Embedding stage produced.
+# What a collection is assumed to have been embedded with when it does not say.
+# Collections built before the provider was recorded were all Gemini, so an
+# index that predates this field still answers correctly.
+DEFAULT_PROVIDER = "gemini"
+
+# Every provider the Embedding stage can use returns unit-length vectors, so
+# cosine is the metric that matches what it produced.
 DISTANCE_METRIC = "cosine"
 
-DEFAULT_LLM_MODEL = "gemini-2.5-flash"
-LLM_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+# Generation runs on Groq's OpenAI-compatible endpoint. The model id is not a
+# stable thing: Groq retires them, and a retired id answers 404 rather than
+# anything that reads like a bad model name. Check
+# https://console.groq.com/docs/models before changing it.
+#
+# The larger model is the default because of what this stage asks for. Every
+# claim has to carry the tag of the passage it came from, and llama-3.1-8b
+# was seen copying a UUID with one character wrong -- an answer that reads
+# perfectly and cites a posting that does not exist. The invented check
+# catches it, but a citation that has to be caught is not worth the speed.
+# --model llama-3.1-8b-instant is still there when the question is simple.
+DEFAULT_LLM_MODEL = "llama-3.3-70b-versatile"
+LLM_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
+
+# read_api_key only needs to be told which variable holds the key; naming the
+# generation provider here keeps that lookup, and its error message, identical
+# to the one the Embedding stage gives.
+LLM_PROVIDER = SimpleNamespace(name="groq", key_env="GROQ_API_KEY")
 
 # Scalar metadata fields copied onto every point. category is handled
 # separately because it is a list; source, id, chunk_index and chunk_count come
@@ -127,6 +150,20 @@ def embedding_settings(records):
     return models.pop(), dimensions.pop()
 
 
+def embedding_provider(records):
+    """Return the provider every record was embedded with.
+
+    Kept apart from embedding_settings so callers that only want the model and
+    the width are unaffected. Records written before the provider was recorded
+    came from the API path, which was Gemini.
+    """
+    providers = {record.get("provider") or DEFAULT_PROVIDER for record in records}
+    assert len(providers) == 1, (
+        f"records were embedded by several providers: {sorted(providers)}"
+    )
+    return providers.pop()
+
+
 def flatten_metadata(record):
     """Build the Chroma payload for one record.
 
@@ -173,12 +210,16 @@ def get_client(persist_dir=PERSIST_DIR):
 
 
 def create_collection(client, name=DEFAULT_COLLECTION, dimension=None, model=None,
-                      reset=False):
+                      provider=None, reset=False):
     """Create (or reopen) the collection the vectors are indexed in.
 
     Chroma takes its width from the first vector added rather than from a
     declared schema, so the dimension the Embedding stage produced is recorded
     in the collection metadata and checked against the vectors on the way in.
+
+    The provider is recorded for the same reason the model is: a query has to
+    be embedded the way the corpus was, and two providers can produce vectors
+    of the same width that mean nothing to each other.
     """
     if reset:
         try:
@@ -192,6 +233,8 @@ def create_collection(client, name=DEFAULT_COLLECTION, dimension=None, model=Non
         metadata["dimension"] = dimension
     if model is not None:
         metadata["embedding_model"] = model
+    if provider is not None:
+        metadata["embedding_provider"] = provider
 
     return client.get_or_create_collection(name=name, metadata=metadata)
 
@@ -246,33 +289,41 @@ def build_where(filters):
     return clauses[0] if len(clauses) == 1 else {"$and": clauses}
 
 
-def embed_query(query, model, dimension, log=lambda *args: None):
-    """Embed one query with the model and width the corpus was embedded with.
+def embed_query(query, model, dimension, provider=DEFAULT_PROVIDER,
+                log=lambda *args: None):
+    """Embed one query with the provider, model and width the corpus used.
 
     This goes through the Embedding stage's own embed_texts so the query cannot
     drift onto a different model, a different width, or a different provider
     than the vectors it is being compared against.
+
+    A provider trained for asymmetric retrieval wants the query marked as a
+    query; it says so with a query_prefix, and the documents were embedded
+    without one. Providers that make no such distinction have no prefix and
+    the query goes through unchanged.
     """
+    embedder = PROVIDERS[provider]
+    text = getattr(embedder, "query_prefix", "") + query
     vectors, _ = embed_texts(
-        [query], provider="gemini", model=model, dimension=dimension, log=log
+        [text], provider=provider, model=model, dimension=dimension, log=log
     )
     return vectors[0]
 
 
 def search(collection, query, top_k=DEFAULT_TOP_K, filters=None, model=None,
-           dimension=None):
+           dimension=None, provider=None):
     """Return the top_k passages for a query, newest hit first.
 
     filters is a plain dict of metadata conditions; see build_where. Each hit
     carries the passage, its full payload and a similarity score, which is what
     build_prompt needs to write a citation.
     """
-    if model is None or dimension is None:
-        stored = collection.metadata or {}
-        model = model or stored.get("embedding_model")
-        dimension = dimension or stored.get("dimension")
+    stored = collection.metadata or {}
+    model = model or stored.get("embedding_model")
+    dimension = dimension or stored.get("dimension")
+    provider = provider or stored.get("embedding_provider") or DEFAULT_PROVIDER
 
-    vector = embed_query(query, model, dimension)
+    vector = embed_query(query, model, dimension, provider=provider)
     result = collection.query(
         query_embeddings=[vector],
         n_results=top_k,
@@ -349,24 +400,18 @@ def call_llm(prompt, model=DEFAULT_LLM_MODEL, temperature=0.0, log=print):
     here the same way it is there. The key travels in the headers and nothing
     from the request is logged.
     """
-    api_key = read_api_key(PROVIDERS["gemini"])
-    url = LLM_ENDPOINT.format(model=model)
-    headers = {"Content-Type": "application/json", "x-goog-api-key": api_key}
+    api_key = read_api_key(LLM_PROVIDER)
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
     body = {
-        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "temperature": temperature,
-            # Grounded extraction from passages that are already in front of
-            # the model does not need a reasoning budget.
-            "thinkingConfig": {"thinkingBudget": 0},
-        },
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": temperature,
     }
-    payload = post_with_retry(url, headers, body, log=log)
+    payload = post_with_retry(LLM_ENDPOINT, headers, body, log=log)
 
-    candidates = payload.get("candidates") or []
-    assert candidates, f"the model returned no answer: {payload.get('promptFeedback')}"
-    parts = candidates[0].get("content", {}).get("parts") or []
-    return "".join(part["text"] for part in parts if "text" in part).strip()
+    choices = payload.get("choices") or []
+    assert choices, f"the model returned no answer: {payload}"
+    return (choices[0].get("message", {}).get("content") or "").strip()
 
 
 def cited_tags(text):

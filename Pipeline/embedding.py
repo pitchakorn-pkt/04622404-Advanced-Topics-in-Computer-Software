@@ -45,7 +45,11 @@ from pathlib import Path
 
 # Must match the dimension the Vector Store stage creates its index with. A
 # mismatch is not a quality problem, it is a failed upsert.
-DEFAULT_DIMENSION = 1536
+#
+# 384 is the native width of the default provider's model. The API providers
+# can be asked for any width and will truncate to it; a local model cannot,
+# so its width is checked rather than requested.
+DEFAULT_DIMENSION = 384
 
 # One request carries many chunks. 100 is the largest batch the Gemini endpoint
 # accepts, and is comfortably inside the OpenAI request size limit.
@@ -68,6 +72,9 @@ CHARS_PER_TOKEN = 4
 DEFAULT_MAX_RETRIES = 5
 DEFAULT_BACKOFF = 1.0
 DEFAULT_TIMEOUT = 60
+
+# Sent on every request; see post_json for why the default will not do.
+USER_AGENT = "Advance-AI-RAG/1.0"
 
 CACHE_PATH = Path(__file__).resolve().parent / "embedding_cache" / "vectors.jsonl"
 
@@ -168,7 +175,82 @@ class OpenAIProvider:
         return [item["embedding"] for item in items]
 
 
-PROVIDERS = {provider.name: provider() for provider in (GeminiProvider, OpenAIProvider)}
+class SentenceTransformersProvider:
+    """Local sentence-transformers embeddings, computed in this process.
+
+    Nothing leaves the machine, so there is no key to read, no per-minute
+    budget to stay under and nothing to retry. `local` is what tells
+    embed_texts to skip the whole transport below rather than special-case it.
+
+    bge-small-en-v1.5 is chosen over the MiniLM family for one reason: its
+    window is wide enough. Chunks in this corpus reach 500 tokens before
+    embedding_text prepends its header, and MiniLM stops reading at 128 --
+    which is not an error, just two thirds of every posting quietly missing
+    from the vector that claims to represent it.
+    """
+
+    name = "sentence-transformers"
+    key_env = None
+    default_model = "BAAI/bge-small-en-v1.5"
+    local = True
+
+    # bge is trained for asymmetric retrieval: the query carries an
+    # instruction, the documents do not. This belongs to the query side only,
+    # so it lives here and is applied in the Vector Store stage, not below.
+    query_prefix = "Represent this sentence for searching relevant passages: "
+
+    def __init__(self):
+        self._model = None
+        self._model_name = None
+
+    def load(self, model):
+        """Load the model once and keep it; loading costs more than encoding."""
+        if self._model is None or self._model_name != model:
+            from sentence_transformers import SentenceTransformer
+
+            self._model = SentenceTransformer(model)
+            self._model_name = model
+        return self._model
+
+    def embed(self, texts, model, dimension, log=print):
+        """Return one unit-length vector per text, in the order given."""
+        encoder = self.load(model)
+
+        # Renamed in sentence-transformers 5; the old name still works but
+        # warns, and the new one does not exist further back.
+        width = (encoder.get_embedding_dimension()
+                 if hasattr(encoder, "get_embedding_dimension")
+                 else encoder.get_sentence_embedding_dimension())
+        assert width == dimension, (
+            f"{model} produces {width}-wide vectors but the pipeline asked for "
+            f"{dimension}; a local model cannot be truncated to order the way "
+            f"the API providers can"
+        )
+
+        # Truncation here is silent -- the model simply stops reading, and the
+        # vector still comes back the right width. Anything cut off was paid
+        # for in the Chunking stage and is gone, so it is counted and said out
+        # loud rather than left to be discovered as poor retrieval later.
+        limit = encoder.max_seq_length
+        over = [n for n in (len(encoder.tokenizer(text)["input_ids"]) for text in texts)
+                if n > limit]
+        if over:
+            log(f"    WARNING: {len(over)}/{len(texts)} texts are longer than "
+                f"{limit} tokens and will be truncated "
+                f"({sum(n - limit for n in over):,} tokens dropped)")
+
+        # normalize_embeddings keeps cosine meaning the same thing it means for
+        # the API providers, which return unit-length vectors already.
+        vectors = encoder.encode(
+            texts, normalize_embeddings=True, batch_size=32, show_progress_bar=False
+        )
+        return [vector.tolist() for vector in vectors]
+
+
+PROVIDERS = {
+    provider.name: provider()
+    for provider in (GeminiProvider, OpenAIProvider, SentenceTransformersProvider)
+}
 
 
 def get_provider(name):
@@ -317,7 +399,14 @@ class RateLimiter:
 
 
 def post_json(url, headers, body, timeout=DEFAULT_TIMEOUT):
-    """POST a JSON body and return the decoded response."""
+    """POST a JSON body and return the decoded response.
+
+    urllib announces itself as "Python-urllib/3.x", which Cloudflare rejects
+    outright on some endpoints -- a 403 carrying "error code: 1010", before
+    the request ever reaches the API. Naming the caller is enough to pass, and
+    is what any HTTP client would have sent anyway.
+    """
+    headers = {"User-Agent": USER_AGENT, **headers}
     data = json.dumps(body).encode("utf-8")
     request = urllib.request.Request(url, data=data, headers=headers, method="POST")
     with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -331,13 +420,22 @@ def post_with_retry(url, headers, body, max_retries=DEFAULT_MAX_RETRIES,
     Waits backoff, 2x, 4x ... with a little jitter so retries from several
     machines do not line up. Nothing from the request -- url aside -- is
     logged: the headers carry the API key.
+
+    What the server said, on the other hand, is worth every character. A bare
+    status tells you a request failed; the body tells you which quota ran out,
+    which model id no longer exists, or that the request never reached the API
+    at all. It is part of the response, never the request, so it carries no
+    key.
     """
     for attempt in range(max_retries + 1):
         try:
             return post_json(url, headers, body, timeout=timeout)
         except urllib.error.HTTPError as error:
             retriable = error.code in RETRY_STATUS
+            detail = error.read().decode("utf-8", "replace").strip()[:400]
             reason = f"HTTP {error.code}"
+            if detail:
+                log(f"    {reason}: {detail}")
         except (urllib.error.URLError, TimeoutError) as error:
             retriable = True
             reason = type(error).__name__
@@ -352,7 +450,41 @@ def post_with_retry(url, headers, body, max_retries=DEFAULT_MAX_RETRIES,
         time.sleep(delay)
 
 
-def embed_texts(texts, provider="gemini", model=None, dimension=DEFAULT_DIMENSION,
+def embed_local(provider, texts, keys, cache, pending, model, dimension,
+                cache_path, use_cache, log):
+    """The local path through embed_texts: encode in this process and return.
+
+    Kept apart so the API path below is left exactly as it was. There are no
+    HTTP requests to count, so `requests` reports encode calls instead.
+    """
+    fresh = []
+    if pending:
+        log(f"  embedding {len(pending)} new text(s) with {provider.name}/{model} "
+            f"at dimension {dimension}, in this process")
+        pending_keys = list(pending)
+        vectors = provider.embed(
+            [pending[key] for key in pending_keys], model, dimension, log=log
+        )
+        for key, vector in zip(pending_keys, vectors):
+            cache[key] = vector
+            fresh.append((key, vector))
+        if use_cache:
+            append_cache(fresh, cache_path)
+
+    fresh_keys = {key for key, _ in fresh}
+    stats = {
+        "total": len(texts),
+        "from_cache": sum(1 for key in keys if key not in fresh_keys),
+        "requested": len(pending),
+        "requests": 1 if pending else 0,
+        "model": model,
+        "provider": provider.name,
+        "dimension": dimension,
+    }
+    return [cache[key] for key in keys], stats
+
+
+def embed_texts(texts, provider="sentence-transformers", model=None, dimension=DEFAULT_DIMENSION,
                 batch_size=DEFAULT_BATCH_SIZE, max_batch_tokens=DEFAULT_MAX_BATCH_TOKENS,
                 tokens_per_minute=DEFAULT_TOKENS_PER_MINUTE, max_retries=DEFAULT_MAX_RETRIES,
                 backoff=DEFAULT_BACKOFF, cache_path=CACHE_PATH, use_cache=True, log=print):
@@ -375,6 +507,13 @@ def embed_texts(texts, provider="gemini", model=None, dimension=DEFAULT_DIMENSIO
     for key, text in zip(keys, texts):
         if key not in cache:
             pending.setdefault(key, text)
+
+    # A local provider has no key, no rate limit and nothing to retry, so it
+    # skips the transport below entirely rather than threading a special case
+    # through batching, pacing and backoff.
+    if getattr(provider, "local", False):
+        return embed_local(provider, texts, keys, cache, pending, model,
+                           dimension, cache_path, use_cache, log)
 
     if pending:
         api_key = read_api_key(provider)
