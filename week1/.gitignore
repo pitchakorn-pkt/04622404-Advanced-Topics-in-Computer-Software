@@ -2,3 +2,14 @@
 __pycache__/
 .venv/
 
+
+# Embedding stage: secrets, the local vector cache, and the vectors themselves
+.env
+*.key
+Pipeline/embedding_cache/
+Pipeline/outputs/embeddings_*.json
+
+# Vector Store stage: the local index, rebuilt from the vectors above. One
+# store per embedding provider, since their vectors cannot share a collection.
+Pipeline/chroma_*/
+*.sqlite3
