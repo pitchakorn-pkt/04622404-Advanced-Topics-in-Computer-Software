@@ -1,4 +1,4 @@
-# Week 1 — LLM Data Pipeline
+# LAB01 — LLM Data Pipeline
 
 **My part: Cleaning + Normalization** (stage 2), and later a local embedding
 provider so the pipeline runs without a paid API key.
