@@ -31,8 +31,9 @@ from src.prompt_templates import format_context
 # กี่ข้อ — การเรียก LLM ช้า จึงตั้งไว้น้อย
 LIMIT = 20
 
-# ใช้คำถามรูปแบบไหน (natural = ภาษาพูดจริง เป็นเคสที่ใช้ตัดสิน)
-VARIANT = "natural"
+# ใช้คำถามรูปแบบไหน — paraphrase คือคำถามที่เขียนใหม่ด้วยมือ ไม่ยืมคำจากคลัง
+# จึงเป็นเคสที่ใช้ตัดสิน ส่วน natural แค่เติมคำนำหน้ากับคำลงท้ายให้คำถามเดิม
+VARIANT = "paraphrase"
 
 
 def word_overlap(text_a, text_b):
