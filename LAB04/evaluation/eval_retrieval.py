@@ -26,6 +26,7 @@ import time
 
 import config
 from evaluation.metrics import average, evaluate_one, print_table
+from src.query_transform import normalize_query
 
 # จำนวนข้อที่จะทดสอบ (None = ทั้งหมด) — ลดลงถ้าอยากให้เร็ว
 LIMIT = None
@@ -67,6 +68,10 @@ def run_one_setting(retriever, items, top_k, use_bm25, use_dense):
             query = item["variants"].get(variant)
             if not query:
                 continue
+
+            # ผ่านขั้นปรับคำถามแบบไม่ใช้ AI ให้เหมือนกับที่ main.py ทำจริง
+            # ก่อนหน้านี้สคริปต์นี้ข้ามขั้นนี้ไป จึงรายงานตัวเลขต่ำกว่าระบบจริง
+            query = normalize_query(query)
 
             if not use_dense:
                 # bm25_only — เรียก BM25 ตรง ๆ ไม่ผ่าน RRF

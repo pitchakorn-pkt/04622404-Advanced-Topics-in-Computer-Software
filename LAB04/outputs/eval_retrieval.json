@@ -3,7 +3,7 @@
   "results": {
     "dense_only": {
       "overall": {
-        "mrr": 0.9264,
+        "mrr": 0.9258,
         "hit@1": 0.8907,
         "recall@1": 0.8603,
         "precision@1": 0.8907,
@@ -11,15 +11,15 @@
         "hit@3": 0.9595,
         "recall@3": 0.9534,
         "precision@3": 0.336,
-        "ndcg@3": 0.9262,
+        "ndcg@3": 0.9257,
         "hit@5": 0.9636,
         "recall@5": 0.9575,
         "precision@5": 0.2024,
-        "ndcg@5": 0.9279,
+        "ndcg@5": 0.9274,
         "hit@10": 0.9798,
         "recall@10": 0.9757,
         "precision@10": 0.1032,
-        "ndcg@10": 0.9342
+        "ndcg@10": 0.9337
       },
       "by_variant": {
         "verbatim": {
@@ -99,7 +99,7 @@
           "ndcg@10": 0.996
         },
         "paraphrase": {
-          "mrr": 0.7388,
+          "mrr": 0.736,
           "hit@1": 0.6167,
           "recall@1": 0.5917,
           "precision@1": 0.6167,
@@ -107,38 +107,38 @@
           "hit@3": 0.85,
           "recall@3": 0.8333,
           "precision@3": 0.2889,
-          "ndcg@3": 0.7466,
+          "ndcg@3": 0.7444,
           "hit@5": 0.8667,
           "recall@5": 0.85,
           "precision@5": 0.1767,
-          "ndcg@5": 0.7538,
+          "ndcg@5": 0.7516,
           "hit@10": 0.9167,
           "recall@10": 0.9083,
           "precision@10": 0.095,
-          "ndcg@10": 0.7738
+          "ndcg@10": 0.7716
         }
       },
-      "ms_per_query": 23.0
+      "ms_per_query": 21.3
     },
     "bm25_only": {
       "overall": {
-        "mrr": 0.8909,
-        "hit@1": 0.8543,
-        "recall@1": 0.8239,
-        "precision@1": 0.8543,
-        "ndcg@1": 0.8543,
-        "hit@3": 0.919,
-        "recall@3": 0.917,
-        "precision@3": 0.3252,
-        "ndcg@3": 0.8911,
-        "hit@5": 0.9312,
-        "recall@5": 0.9291,
-        "precision@5": 0.1976,
-        "ndcg@5": 0.8958,
-        "hit@10": 0.9636,
-        "recall@10": 0.9595,
-        "precision@10": 0.102,
-        "ndcg@10": 0.906
+        "mrr": 0.9028,
+        "hit@1": 0.8745,
+        "recall@1": 0.8441,
+        "precision@1": 0.8745,
+        "ndcg@1": 0.8745,
+        "hit@3": 0.9231,
+        "recall@3": 0.9211,
+        "precision@3": 0.3266,
+        "ndcg@3": 0.9017,
+        "hit@5": 0.9352,
+        "recall@5": 0.9332,
+        "precision@5": 0.1984,
+        "ndcg@5": 0.9065,
+        "hit@10": 0.9595,
+        "recall@10": 0.9555,
+        "precision@10": 0.1016,
+        "ndcg@10": 0.914
       },
       "by_variant": {
         "verbatim": {
@@ -161,23 +161,23 @@
           "ndcg@10": 1.0
         },
         "slang": {
-          "mrr": 0.91,
-          "hit@1": 0.85,
-          "recall@1": 0.825,
-          "precision@1": 0.85,
-          "ndcg@1": 0.85,
-          "hit@3": 0.95,
-          "recall@3": 0.95,
-          "precision@3": 0.3333,
-          "ndcg@3": 0.9131,
+          "mrr": 1.0,
+          "hit@1": 1.0,
+          "recall@1": 0.975,
+          "precision@1": 1.0,
+          "ndcg@1": 1.0,
+          "hit@3": 1.0,
+          "recall@3": 1.0,
+          "precision@3": 0.35,
+          "ndcg@3": 1.0,
           "hit@5": 1.0,
           "recall@5": 1.0,
           "precision@5": 0.21,
-          "ndcg@5": 0.9324,
+          "ndcg@5": 1.0,
           "hit@10": 1.0,
           "recall@10": 1.0,
           "precision@10": 0.105,
-          "ndcg@10": 0.9324
+          "ndcg@10": 1.0
         },
         "partial": {
           "mrr": 0.9681,
@@ -218,46 +218,46 @@
           "ndcg@10": 1.0
         },
         "paraphrase": {
-          "mrr": 0.6059,
-          "hit@1": 0.5,
-          "recall@1": 0.475,
-          "precision@1": 0.5,
-          "ndcg@1": 0.5,
+          "mrr": 0.6248,
+          "hit@1": 0.5333,
+          "recall@1": 0.5083,
+          "precision@1": 0.5333,
+          "ndcg@1": 0.5333,
           "hit@3": 0.6833,
           "recall@3": 0.675,
           "precision@3": 0.2389,
-          "ndcg@3": 0.5992,
-          "hit@5": 0.7167,
-          "recall@5": 0.7083,
-          "precision@5": 0.15,
-          "ndcg@5": 0.6121,
-          "hit@10": 0.85,
-          "recall@10": 0.8333,
-          "precision@10": 0.0883,
-          "ndcg@10": 0.654
+          "ndcg@3": 0.6136,
+          "hit@5": 0.7333,
+          "recall@5": 0.725,
+          "precision@5": 0.1533,
+          "ndcg@5": 0.6337,
+          "hit@10": 0.8333,
+          "recall@10": 0.8167,
+          "precision@10": 0.0867,
+          "ndcg@10": 0.6645
         }
       },
       "ms_per_query": 0.2
     },
     "hybrid": {
       "overall": {
-        "mrr": 0.9328,
+        "mrr": 0.9325,
         "hit@1": 0.9069,
         "recall@1": 0.8765,
         "precision@1": 0.9069,
         "ndcg@1": 0.9069,
-        "hit@3": 0.9514,
-        "recall@3": 0.9453,
-        "precision@3": 0.3333,
-        "ndcg@3": 0.9287,
+        "hit@3": 0.9474,
+        "recall@3": 0.9413,
+        "precision@3": 0.332,
+        "ndcg@3": 0.9267,
         "hit@5": 0.9636,
-        "recall@5": 0.9595,
-        "precision@5": 0.2032,
-        "ndcg@5": 0.9346,
+        "recall@5": 0.9615,
+        "precision@5": 0.204,
+        "ndcg@5": 0.9353,
         "hit@10": 0.9838,
         "recall@10": 0.9818,
         "precision@10": 0.1045,
-        "ndcg@10": 0.9428
+        "ndcg@10": 0.9426
       },
       "by_variant": {
         "verbatim": {
@@ -337,46 +337,46 @@
           "ndcg@10": 1.0
         },
         "paraphrase": {
-          "mrr": 0.7511,
+          "mrr": 0.7497,
           "hit@1": 0.6667,
           "recall@1": 0.6417,
           "precision@1": 0.6667,
           "ndcg@1": 0.6667,
-          "hit@3": 0.8,
-          "recall@3": 0.7833,
-          "precision@3": 0.2722,
-          "ndcg@3": 0.7335,
+          "hit@3": 0.7833,
+          "recall@3": 0.7667,
+          "precision@3": 0.2667,
+          "ndcg@3": 0.7252,
           "hit@5": 0.85,
-          "recall@5": 0.8333,
-          "precision@5": 0.1733,
-          "ndcg@5": 0.7536,
+          "recall@5": 0.8417,
+          "precision@5": 0.1767,
+          "ndcg@5": 0.7564,
           "hit@10": 0.9333,
           "recall@10": 0.925,
           "precision@10": 0.0983,
-          "ndcg@10": 0.7872
+          "ndcg@10": 0.7863
         }
       },
-      "ms_per_query": 20.4
+      "ms_per_query": 19.8
     },
     "hybrid+rerank": {
       "overall": {
-        "mrr": 0.9438,
-        "hit@1": 0.915,
-        "recall@1": 0.8866,
-        "precision@1": 0.915,
-        "ndcg@1": 0.915,
+        "mrr": 0.9486,
+        "hit@1": 0.9231,
+        "recall@1": 0.8927,
+        "precision@1": 0.9231,
+        "ndcg@1": 0.9231,
         "hit@3": 0.9676,
         "recall@3": 0.9474,
         "precision@3": 0.3293,
-        "ndcg@3": 0.9305,
+        "ndcg@3": 0.9333,
         "hit@5": 0.9838,
         "recall@5": 0.9656,
         "precision@5": 0.2016,
-        "ndcg@5": 0.9381,
+        "ndcg@5": 0.9409,
         "hit@10": 0.996,
-        "recall@10": 0.9818,
-        "precision@10": 0.1032,
-        "ndcg@10": 0.9437
+        "recall@10": 0.9777,
+        "precision@10": 0.1024,
+        "ndcg@10": 0.945
       },
       "by_variant": {
         "verbatim": {
@@ -413,9 +413,9 @@
           "precision@5": 0.2,
           "ndcg@5": 0.9807,
           "hit@10": 1.0,
-          "recall@10": 1.0,
-          "precision@10": 0.105,
-          "ndcg@10": 0.9899
+          "recall@10": 0.975,
+          "precision@10": 0.1,
+          "ndcg@10": 0.9807
         },
         "partial": {
           "mrr": 0.9592,
@@ -451,31 +451,31 @@
           "precision@5": 0.2067,
           "ndcg@5": 0.9846,
           "hit@10": 1.0,
-          "recall@10": 0.9917,
-          "precision@10": 0.105,
-          "ndcg@10": 0.9876
+          "recall@10": 0.9833,
+          "precision@10": 0.1033,
+          "ndcg@10": 0.9846
         },
         "paraphrase": {
-          "mrr": 0.8008,
-          "hit@1": 0.7,
-          "recall@1": 0.6833,
-          "precision@1": 0.7,
-          "ndcg@1": 0.7,
+          "mrr": 0.8202,
+          "hit@1": 0.7333,
+          "recall@1": 0.7083,
+          "precision@1": 0.7333,
+          "ndcg@1": 0.7333,
           "hit@3": 0.8833,
           "recall@3": 0.8667,
           "precision@3": 0.3,
-          "ndcg@3": 0.7981,
+          "ndcg@3": 0.8094,
           "hit@5": 0.9333,
           "recall@5": 0.9167,
           "precision@5": 0.19,
-          "ndcg@5": 0.8182,
+          "ndcg@5": 0.8294,
           "hit@10": 0.9833,
           "recall@10": 0.9583,
           "precision@10": 0.1,
-          "ndcg@10": 0.8322
+          "ndcg@10": 0.8434
         }
       },
-      "ms_per_query": 534.4
+      "ms_per_query": 527.1
     }
   }
 }
