@@ -17,7 +17,11 @@ The course follows the official course description and extends it with modern AI
 
 ## Course Work
 
-| Week | My part | Folder |
+Each lab lives in its own folder, `LAB01` through `LAB10`, with the final project in `Final-Project/`.
+
+| Lab | My part | Folder |
 |---|---|---|
-| 1 | Cleaning + Normalization (LLM data pipeline, stage 2), then a local embedding provider and a free answering model so the pipeline runs without a paid key — see the timeline in [`week1/README.md`](week1/README.md) | [`week1/`](week1/) |
-| 2 | RAG retrieval system over a Thai food Q&A dataset | [`week2/`](week2/) |
+| LAB01 | Cleaning + Normalization (LLM data pipeline, stage 2), then a local embedding provider and a free answering model so the pipeline runs without a paid key — see the timeline in [`LAB01/README.md`](LAB01/README.md) | [`LAB01/`](LAB01/) |
+| LAB02 | RAG retrieval system over a Thai food Q&A dataset | [`LAB02/`](LAB02/) |
+| LAB03 – LAB10 | not started yet | [`LAB03/`](LAB03/) … [`LAB10/`](LAB10/) |
+| Final Project | not started yet | [`Final-Project/`](Final-Project/) |
