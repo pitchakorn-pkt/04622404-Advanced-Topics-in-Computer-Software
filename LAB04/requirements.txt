@@ -1,0 +1,14 @@
+# Core retrieval
+faiss-cpu>=1.8
+numpy>=1.26
+sentence-transformers>=3.0
+
+# Keyword search
+rank-bm25>=0.2.2
+
+# Thai language processing
+pythainlp>=5.0
+python-crfsuite>=0.9.9      # needed by sent_tokenize(engine="crfcut")
+
+# LLM (OpenAI-compatible client: groq / openai / gemini / ollama)
+openai>=1.40
