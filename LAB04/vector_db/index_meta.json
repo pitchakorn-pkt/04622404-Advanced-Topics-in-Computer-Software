@@ -1,0 +1,13 @@
+{
+  "file": {
+    "size": 180254,
+    "mtime": 1785915056
+  },
+  "settings": {
+    "CHUNK_SIZE": 400,
+    "CHUNK_OVERLAP": 50,
+    "EMBEDDING_MODEL_NAME": "BAAI/bge-m3"
+  },
+  "n_chunks": 199,
+  "source_file": "iot_qa.txt"
+}
