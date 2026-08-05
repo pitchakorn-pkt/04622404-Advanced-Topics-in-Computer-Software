@@ -9,6 +9,7 @@
 # Prevent retrieval from using an old or mismatched index.
 
 
+import hashlib
 import json
 import os
 
@@ -19,10 +20,14 @@ TRACKED_SETTINGS = ["CHUNK_SIZE", "CHUNK_OVERLAP", "EMBEDDING_MODEL_NAME"]
 
 
 def get_current_state():  #านสถานะปัจจุบันของ dataset และค่าตั้ง
+    # ดูจากเนื้อหาไฟล์ ไม่ใช่เวลาแก้ไขล่าสุด
+    # เพราะ git ตั้งเวลาแก้ไขใหม่ตอน checkout ทำให้ clone ใหม่ถูกเตือนว่า
+    # index ล้าสมัยทุกครั้ง ทั้งที่เนื้อหาไฟล์เหมือนเดิมทุกไบต์
     file_info = {}
     if os.path.exists(config.SOURCE_FILE):
-        stat = os.stat(config.SOURCE_FILE)
-        file_info = {"size": stat.st_size, "mtime": int(stat.st_mtime)}
+        with open(config.SOURCE_FILE, "rb") as f:
+            content = f.read()
+        file_info = {"size": len(content), "sha256": hashlib.sha256(content).hexdigest()}
 
     settings = {name: getattr(config, name) for name in TRACKED_SETTINGS}
 

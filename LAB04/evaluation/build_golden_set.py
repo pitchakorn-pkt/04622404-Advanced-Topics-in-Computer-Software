@@ -8,15 +8,17 @@
 # This provides automatic ground truth without writing every test item manually.
 #
 # Original questions are too easy because BM25 can match the same words directly.
-# To create more realistic tests, each question is converted into four query types:
+# To create more realistic tests, each question is converted into several query types:
 #
-# verbatim  Original question for checking the system's upper limit.
-# slang     Medical terms rewritten in everyday language.
-# partial   Short keyword-style query.
-# natural   Natural user-style question for realistic evaluation.
+# verbatim    Original question for checking the system's upper limit.
+# slang       Technical terms rewritten the way people actually type them.
+# partial     Short keyword-style query.
+# natural     Original question with a spoken-style prefix and suffix.
+# paraphrase  Hand-written rewrite loaded from data/eval_paraphrases.txt.
 #
-# The gap between verbatim and natural results shows how well the system handles
-# real user queries.
+# The first four all reuse most of the original wording, so they mostly show the
+# upper limit. The gap between them and paraphrase is what shows whether the
+# system retrieves by meaning or merely matches words.
 #
 # Set the number of items with config.GOLDEN_SET_SIZE.
 # Run: python -m evaluation.build_golden_set
@@ -61,7 +63,8 @@ def load_paraphrases():
     อ่านคำถามที่เขียนใหม่ด้วยมือจาก data/eval_paraphrases.txt
 
     คืน dict {คำถามต้นฉบับ: คำถามที่เขียนใหม่} ถ้าไม่มีไฟล์ก็คืน dict ว่าง
-    variant นี้เป็นตัวเดียวที่ "ไม่ได้ยืมคำมาจากคลัง" จึงเป็นเคสที่ใช้ตัดสินจริง
+    variant นี้เลี่ยงคำจากคำถามต้นฉบับมากที่สุด (เหลือคำซ้ำเฉลี่ย 25% เทียบกับ
+    verbatim 1.00 และ natural 0.98) จึงเป็นเคสที่ใช้ตัดสินจริง
     """
     if not os.path.exists(config.PARAPHRASE_FILE):
         return {}
@@ -102,7 +105,7 @@ def make_variants(question, rng, paraphrases):
     core = re.sub(r"\s*(คืออะไร|มีอะไรบ้าง|อย่างไร|ยังไง)\s*$", "", question).strip()
     variants["natural"] = f"{rng.choice(PREFIXES)}{core} ยังไง{rng.choice(SUFFIXES)}".strip()
 
-    # paraphrase: คำถามที่เขียนใหม่ด้วยมือ ไม่ยืมคำจากคำถามต้นฉบับ
+    # paraphrase: คำถามที่เขียนใหม่ด้วยมือ เลี่ยงคำจากคำถามต้นฉบับให้มากที่สุด
     if question in paraphrases:
         variants["paraphrase"] = paraphrases[question]
 
