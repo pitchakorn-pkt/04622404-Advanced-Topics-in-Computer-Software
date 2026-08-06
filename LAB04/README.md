@@ -1,5 +1,7 @@
 # LAB04 — RAG System Development I
 
+English · [ภาษาไทย](README.th.md)
+
 A Thai-language RAG system that answers everyday phone and computer questions.
 It builds on the DL-04 lab template: the knowledge base was replaced with a corpus
 written for this assignment, and the parts of the pipeline that handle Thai text were
