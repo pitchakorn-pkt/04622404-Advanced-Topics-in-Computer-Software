@@ -124,20 +124,32 @@ def main():
     # ใช้เฉพาะ part_idx == 0 เพราะเป็นชิ้นที่มีคำถามเต็ม
     primary = [c for c in chunks if c.get("part_idx", 0) == 0]
 
-    # สุ่มแบบกระจายตามหมวด ไม่ให้หมวดใหญ่กินพื้นที่หมด
+    paraphrases = load_paraphrases()
+
+    # เลือกข้อที่มีคำถามเขียนใหม่ด้วยมือไว้แล้วก่อนเสมอ
+    #
+    # ทำแบบนี้เพื่อให้ชุดข้อสอบไม่เปลี่ยนเมื่อเพิ่มเอกสารเข้าคลัง ถ้าปล่อยให้สุ่มใหม่
+    # ทุกครั้ง การเพิ่มเอกสารจะเปลี่ยนทั้งคำถามและเฉลย จนเทียบผลก่อนหลังไม่ได้
+    # เอกสารที่เพิ่มเข้ามาใหม่จึงทำหน้าที่เป็นตัวลวงล้วน ซึ่งเป็นสิ่งที่ต้องการวัด
+    have_paraphrase = [c for c in primary if c["question"] in paraphrases]
+
+    # ที่เหลือสุ่มแบบกระจายตามหมวด ไม่ให้หมวดใหญ่กินพื้นที่หมด
     rng = random.Random(SEED)
     by_category = {}
     for chunk in primary:
-        by_category.setdefault(chunk["category"], []).append(chunk)
+        if chunk["question"] not in paraphrases:
+            by_category.setdefault(chunk["category"], []).append(chunk)
 
-    selected = []
-    per_category = max(1, config.GOLDEN_SET_SIZE // len(by_category))
-    for pool in by_category.values():
-        rng.shuffle(pool)
-        selected.extend(pool[:per_category])
-    selected = sorted(selected, key=lambda c: c["chunk_id"])[:config.GOLDEN_SET_SIZE]
+    filler = []
+    remaining = max(0, config.GOLDEN_SET_SIZE - len(have_paraphrase))
+    if remaining and by_category:
+        per_category = max(1, remaining // len(by_category))
+        for pool in by_category.values():
+            rng.shuffle(pool)
+            filler.extend(pool[:per_category])
 
-    paraphrases = load_paraphrases()
+    selected = sorted(have_paraphrase + filler,
+                      key=lambda c: c["chunk_id"])[:config.GOLDEN_SET_SIZE]
 
     items = [
         {
