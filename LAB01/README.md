@@ -20,12 +20,6 @@ and `Pipeline/outputs/extracted_text_*.json`. Chunking (stage 3), metadata (stag
 and the scripts that drive the last two stages are the team's work as well: this
 folder is a snapshot of the whole shared pipeline, not only of my part.
 
-**Not part of the pipeline:** `LLM_data_processing.ipynb` at the top of this folder is
-the course notebook for Chapter 2, kept here for reference. It covers the same ground
-from collection to retrieval, but with TF-IDF (`sklearn`) and an in-memory
-`SimpleVectorDatabase` in place of an embedding model and a real database, so it runs in
-seconds with no key — and it ends at retrieval, with no generation step.
-
 ## Timeline
 
 **2026-07-28 — Cleaning + Normalization** ([PR #1](https://github.com/Automatic28m/Advance-AI-RAG/pull/1), merged as `aca605e`)
