@@ -54,6 +54,41 @@ and this repository speaks HTTP through `urllib` alone; the fix was to send a
 real `User-Agent`. And `post_with_retry` used to discard the response body, so
 every failure looked the same from the outside — it logs the body now.
 
+## What the cleaning rule trades away
+
+Boilerplate removal drops any line that appears in five or more documents, on the
+reasoning that a line repeated across unrelated postings is a company blurb or an
+equal-opportunity statement rather than part of the job. That reasoning holds only
+if the postings are independent of each other, and in this corpus they are not:
+Canonical accounts for 36 of the 160 Jobicy postings, Nebius for 9, Experian for 7
+and iHerb for 5. One employer's postings repeat each other by nature, so their
+lines cross a five-document threshold without being boilerplate at all.
+
+Measured on the committed output, as the share of each employer's text that
+survived cleaning:
+
+| Employer | Postings | Text kept |
+|---|---|---|
+| the 58 employers with a single posting | 1 each | 86% |
+| Experian | 7 | 86% |
+| Canonical | 36 | 59% |
+| iHerb | 5 | 34% |
+
+The 77 lines in `outputs/boilerplate_lines.json` are mostly what the rule was
+written for, but not all of them. `Experience with Linux (Debian or Ubuntu
+preferred)` is in there, and so are `Experience with Microsoft Office Suite (Word,
+Excel, PowerPoint)` and `Bachelor's Degree in Computer Science or related field
+preferred` — requirements, removed from every posting that listed them. That
+reaches the example query in this README: a search for who hires for Kubernetes
+work is answered from postings whose stated Linux requirement is no longer in the
+text.
+
+Nothing here is the code doing something other than what it says. The threshold is
+the assumption worth revisiting: counting the employers a line appears under,
+rather than the documents, would separate a blurb repeated by many companies from
+a requirement repeated by one. That is not changed here, because the cleaned
+output is what the later stages were built and measured against.
+
 Pulled with `git subtree` from [Automatic28m/Advance-AI-RAG](https://github.com/Automatic28m/Advance-AI-RAG), branch `Develop`.
 
 ---
