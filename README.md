@@ -23,6 +23,7 @@ Each lab lives in its own folder, `LAB01` through `LAB10`, with the final projec
 |---|---|---|
 | LAB01 | Cleaning + Normalization (LLM data pipeline, stage 2), then a local embedding provider and a free answering model so the pipeline runs without a paid key — see the timeline in [`LAB01/README.md`](LAB01/README.md) | [`LAB01/`](LAB01/) |
 | LAB02 | RAG retrieval system over a Thai food Q&A dataset | [`LAB02/`](LAB02/) |
+| LAB03 | no lab assigned — break in the course schedule | [`LAB03/`](LAB03/) |
 | LAB04 | Full RAG system over a Thai Q&A corpus on everyday phone and computer problems, with hybrid retrieval, reranking, and a measured comparison of Thai-language retrieval settings — see [`LAB04/README.md`](LAB04/README.md) | [`LAB04/`](LAB04/) |
-| LAB03, LAB05 – LAB10 | not started yet | [`LAB03/`](LAB03/) … [`LAB10/`](LAB10/) |
+| LAB05 – LAB10 | not started yet | [`LAB05/`](LAB05/) … [`LAB10/`](LAB10/) |
 | Final Project | not started yet | [`Final-Project/`](Final-Project/) |
