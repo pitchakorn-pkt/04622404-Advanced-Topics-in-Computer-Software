@@ -1,0 +1,13 @@
+{
+  "file": {
+    "size": 194391,
+    "sha256": "0615077beb9e7392bf4c7744aca4b6bb58af75c033f9c20f58a353599a7e0833"
+  },
+  "settings": {
+    "CHUNK_SIZE": 400,
+    "CHUNK_OVERLAP": 50,
+    "EMBEDDING_MODEL_NAME": "BAAI/bge-m3"
+  },
+  "n_chunks": 194,
+  "source_file": "daily_tech_qa.txt"
+}

@@ -1,0 +1,180 @@
+
+
+
+
+# Create data/golden_set.json from the existing chunk store.
+#
+# Each chunk comes from a real Q&A pair, so the correct target chunk is already known.
+# This provides automatic ground truth without writing every test item manually.
+#
+# Original questions are too easy because BM25 can match the same words directly.
+# To create more realistic tests, each question is converted into several query types:
+#
+# verbatim    Original question for checking the system's upper limit.
+# slang       Technical terms rewritten the way people actually type them.
+# partial     Short keyword-style query.
+# natural     Original question with a spoken-style prefix and suffix.
+# paraphrase  Hand-written rewrite loaded from data/eval_paraphrases.txt.
+#
+# The first four all reuse most of the original wording, so they mostly show the
+# upper limit. The gap between them and paraphrase is what shows whether the
+# system retrieves by meaning or merely matches words.
+#
+# Set the number of items with config.GOLDEN_SET_SIZE.
+# Run: python -m evaluation.build_golden_set
+
+
+
+import json
+import os
+import random
+import re
+
+import config
+
+# ตรงข้ามกับ SLANG_MAP ใน query_transform: ศัพท์ในเอกสาร → ที่คนพิมพ์กันจริง
+# ตัวที่โหดที่สุดคือคู่ข้ามระบบตัวอักษร (Wi-Fi → ไวไฟ) เพราะ BM25 จะแมตช์ไม่ได้เลย
+TO_SLANG = {
+    "ไวไฟ": "wifi",
+    "บลูทูธ": "bluetooth",
+    "คลาวด์": "cloud",
+    "โอทีพี": "OTP",
+    "แอป": "app",
+    "รหัสผ่าน": "password",
+    "สำรองข้อมูล": "backup",
+    "อัปเดต": "อัพเดท",
+    "โน้ตบุ๊ก": "โน๊ตบุ๊ค",
+    "รีสตาร์ต": "รีสตาร์ท",
+    "เน็ต": "เน็ท",
+}
+
+PREFIXES = ["อยากรู้ว่า", "ขอถามหน่อย", "สงสัยว่า", ""]
+SUFFIXES = ["ครับ", "คะ", "อ่ะ", ""]
+SEED = 42        # ล็อกค่าสุ่มไว้ เพื่อให้ได้ชุดข้อสอบเดิมทุกครั้ง
+
+STOPWORDS = {"คือ", "อะไร", "ที่", "และ", "หรือ", "ของ", "ใน", "มี", "บ้าง",
+             "ได้", "ไหม", "อย่างไร", "ยังไง", "การ", "ความ", "เป็น", "ให้"}
+
+
+def load_paraphrases():
+    """
+    อ่านคำถามที่เขียนใหม่ด้วยมือจาก data/eval_paraphrases.txt
+
+    คืน dict {คำถามต้นฉบับ: คำถามที่เขียนใหม่} ถ้าไม่มีไฟล์ก็คืน dict ว่าง
+    variant นี้เลี่ยงคำจากคำถามต้นฉบับมากที่สุด (เหลือคำซ้ำเฉลี่ย 25% เทียบกับ
+    verbatim 1.00 และ natural 0.98) จึงเป็นเคสที่ใช้ตัดสินจริง
+    """
+    if not os.path.exists(config.PARAPHRASE_FILE):
+        return {}
+
+    pairs = {}
+    original = None
+    with open(config.PARAPHRASE_FILE, "r", encoding="utf-8") as f:
+        for raw in f:
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("Q:"):
+                original = line[2:].strip()
+            elif line.startswith("P:") and original:
+                pairs[original] = line[2:].strip()
+                original = None
+    return pairs
+
+
+def make_variants(question, rng, paraphrases):
+    """สร้างคำถามหลายแบบจากคำถามต้นฉบับ 1 ข้อ"""
+    variants = {"verbatim": question}
+
+    # slang: แทนศัพท์แพทย์ด้วยภาษาพูด (ถ้ามีคำให้แทน)
+    slang = question
+    for formal, casual in TO_SLANG.items():
+        slang = slang.replace(formal, casual)
+    if slang != question:
+        variants["slang"] = slang
+
+    # partial: ตัด stopword เหลือแต่คำเนื้อหา
+    words = [w for w in re.split(r"[\s()/]+", re.sub(r"\(.*?\)", "", question))
+             if w and w not in STOPWORDS and len(w) > 1]
+    if len(words) >= 2:
+        variants["partial"] = " ".join(words[:max(2, int(len(words) * 0.6))])
+
+    # natural: ใส่คำนำ/คำลงท้ายแบบภาษาพูด
+    core = re.sub(r"\s*(คืออะไร|มีอะไรบ้าง|อย่างไร|ยังไง)\s*$", "", question).strip()
+    variants["natural"] = f"{rng.choice(PREFIXES)}{core} ยังไง{rng.choice(SUFFIXES)}".strip()
+
+    # paraphrase: คำถามที่เขียนใหม่ด้วยมือ เลี่ยงคำจากคำถามต้นฉบับให้มากที่สุด
+    if question in paraphrases:
+        variants["paraphrase"] = paraphrases[question]
+
+    return variants
+
+
+def main():
+    print("=== สร้าง Golden Set ===")
+    with open(config.CHUNK_STORE_FILE, "r", encoding="utf-8") as f:
+        chunks = json.load(f)
+
+    # chunk ทุกชิ้นที่มาจาก qa_id เดียวกัน ถือว่าถูกหมด
+    # (คำตอบยาวถูกตัดเป็น 3 ชิ้น ค้นเจอชิ้นไหนก็นับว่าถูก)
+    by_qa = {}
+    for chunk in chunks:
+        by_qa.setdefault(chunk["qa_id"], []).append(chunk["chunk_id"])
+
+    # ใช้เฉพาะ part_idx == 0 เพราะเป็นชิ้นที่มีคำถามเต็ม
+    primary = [c for c in chunks if c.get("part_idx", 0) == 0]
+
+    paraphrases = load_paraphrases()
+
+    # เลือกข้อที่มีคำถามเขียนใหม่ด้วยมือไว้แล้วก่อนเสมอ
+    #
+    # ทำแบบนี้เพื่อให้ชุดข้อสอบไม่เปลี่ยนเมื่อเพิ่มเอกสารเข้าคลัง ถ้าปล่อยให้สุ่มใหม่
+    # ทุกครั้ง การเพิ่มเอกสารจะเปลี่ยนทั้งคำถามและเฉลย จนเทียบผลก่อนหลังไม่ได้
+    # เอกสารที่เพิ่มเข้ามาใหม่จึงทำหน้าที่เป็นตัวลวงล้วน ซึ่งเป็นสิ่งที่ต้องการวัด
+    have_paraphrase = [c for c in primary if c["question"] in paraphrases]
+
+    # ที่เหลือสุ่มแบบกระจายตามหมวด ไม่ให้หมวดใหญ่กินพื้นที่หมด
+    rng = random.Random(SEED)
+    by_category = {}
+    for chunk in primary:
+        if chunk["question"] not in paraphrases:
+            by_category.setdefault(chunk["category"], []).append(chunk)
+
+    filler = []
+    remaining = max(0, config.GOLDEN_SET_SIZE - len(have_paraphrase))
+    if remaining and by_category:
+        per_category = max(1, remaining // len(by_category))
+        for pool in by_category.values():
+            rng.shuffle(pool)
+            filler.extend(pool[:per_category])
+
+    selected = sorted(have_paraphrase + filler,
+                      key=lambda c: c["chunk_id"])[:config.GOLDEN_SET_SIZE]
+
+    items = [
+        {
+            "id": f"g{c['qa_id']:04d}",
+            "category": c["category"],
+            "question": c["question"],
+            "variants": make_variants(c["question"], rng, paraphrases),
+            "relevant_chunk_ids": sorted(by_qa[c["qa_id"]]),
+            "reference_answer": c["answer"],
+        }
+        for c in selected
+    ]
+
+    with open(config.GOLDEN_SET_FILE, "w", encoding="utf-8") as f:
+        json.dump({"size": len(items), "items": items}, f, ensure_ascii=False, indent=2)
+
+    n_paraphrased = sum(1 for it in items if "paraphrase" in it["variants"])
+    print(f"สร้าง {len(items)} ข้อ จาก {len(chunks)} chunks")
+    print(f"มีคำถามที่เขียนใหม่ด้วยมือ {n_paraphrased}/{len(items)} ข้อ")
+    print("\nตัวอย่าง:")
+    for name, text in items[0]["variants"].items():
+        print(f"  {name:9s}: {text}")
+    print(f"  ควรค้นเจอ: {items[0]['relevant_chunk_ids']}")
+    print(f"\nบันทึกที่ {config.GOLDEN_SET_FILE}")
+
+
+if __name__ == "__main__":
+    main()
