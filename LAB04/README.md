@@ -132,7 +132,9 @@ The template generates its test set from the corpus questions themselves, in fou
 variants: `verbatim` (unchanged), `natural` (a spoken-style prefix and suffix added),
 `partial` (common words stripped) and `slang` (technical terms swapped for colloquial
 ones). Measuring how much of the original wording each variant retains — using the same
-tokenizer the system uses — gives 1.00, 1.00, 0.99 and 0.86 respectively.
+tokenizer the system uses — gives 1.00, 1.00, 0.99 and 0.86 respectively. Only `verbatim`
+and `natural` cover all 60 questions; `partial` applies to 27 and `slang` to 25, since
+those two are generated only where the question contains something to strip or substitute.
 
 Every configuration therefore scored a flat 1.0000 on all four. The set could not
 distinguish a system that retrieves by meaning from one that merely matches words, and
@@ -326,7 +328,7 @@ One caveat for anyone doing the same: `dict_trie()` replaces the main dictionary
 extending it. It must be given `set(thai_words()) | set(DOMAIN_WORDS)`, or the tokenizer
 loses every other Thai word and performs worse than before.
 
-Six bugs in the template were found and fixed:
+Seven bugs in the template were found and fixed:
 
 - `src/generator.py` — `NoLLM` split the prompt on the English marker `"reference data :"`
   while the prompt itself is Thai, so the no-LLM mode always answered "not found". The
@@ -342,6 +344,8 @@ Six bugs in the template were found and fixed:
 - `evaluation/eval_retrieval.py` — the benchmark called the retriever directly, bypassing
   the query-preparation step that `main.py` always applies, and therefore reported lower
   figures than the system actually achieves.
+- `main.py` — the block that prints the source list was commented out, so the
+  `SHOW_SOURCES` switch in `config.py` had no effect. It is restored.
 - `src/index_meta.py` — the corpus was compared by modification time, which git resets on
   checkout, so a fresh clone was warned that its index was stale on every run even though
   the file was byte-identical. It now compares a SHA-256 of the contents.
