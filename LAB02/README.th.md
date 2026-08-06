@@ -89,19 +89,24 @@ A: วัตถุดิบหลักของต้มยำกุ้งไ�
 
 ## วิธีรัน
 
+Python 3.12 โมเดล embedding ถูกดาวน์โหลดตอนใช้ครั้งแรก ไม่มีขั้นตอนไหนต้องใช้ API key
+
 ```bash
 cd LAB02
-../.venv/bin/python main.py          # โต้ตอบ พิมพ์ exit, quit หรือ q เพื่อออก
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+python main.py                       # โต้ตอบ พิมพ์ exit, quit หรือ q เพื่อออก
 ```
 
 index ถูก commit ไว้แล้ว `main.py` จึงรันได้เลยโดยไม่ต้องสร้างใหม่ ถ้าแก้ `data/thai_food_qa.txt`
 ต้องสร้างใหม่ก่อน
 
 ```bash
-../.venv/bin/python labs/lab01_extract_text.py
-../.venv/bin/python labs/lab02_chunking.py
-../.venv/bin/python labs/lab03_create_embeddings.py
-../.venv/bin/python labs/lab04_create_vector_db.py
+python labs/lab01_extract_text.py
+python labs/lab02_chunking.py
+python labs/lab03_create_embeddings.py
+python labs/lab04_create_vector_db.py
 ```
 
 `config.py` คำนวณทุก path จากตำแหน่งของตัวเอง ย้ายโฟลเดอร์ได้โดยไม่ต้องแก้อะไร

@@ -1,5 +1,7 @@
 # LAB01 — LLM Data Pipeline
 
+English · [ภาษาไทย](README.th.md)
+
 **My part: Cleaning + Normalization** (stage 2), and later a local embedding
 provider so the pipeline runs without a paid API key.
 
@@ -9,7 +11,7 @@ provider so the pipeline runs without a paid API key.
 | `Pipeline/02_data_cleaning.py` | runs the stage over every Collection output and prints a before/after sample |
 | `Pipeline/outputs/cleaned_*.json` | result, 180 records |
 | `Pipeline/outputs/boilerplate_lines.json` | the boilerplate the run detected |
-| `Pipeline/embedding.py` | added `LocalProvider`: `BAAI/bge-small-en-v1.5` through sentence-transformers, 384 dimensions, runs on this machine |
+| `Pipeline/embedding.py` | added `SentenceTransformersProvider`: `BAAI/bge-small-en-v1.5` through sentence-transformers, 384 dimensions, runs on this machine |
 | `Pipeline/vector_store.py` | answers with Groq `llama-3.3-70b-versatile`; a query is embedded with whichever provider built the corpus |
 | `main.py`, `requirements.txt`, `.env.example` | wiring and setup for the two above |
 
@@ -17,6 +19,12 @@ provider so the pipeline runs without a paid API key.
 and `Pipeline/outputs/extracted_text_*.json`. Chunking (stage 3), metadata (stage 4)
 and the scripts that drive the last two stages are the team's work as well: this
 folder is a snapshot of the whole shared pipeline, not only of my part.
+
+**Not part of the pipeline:** `LLM_data_processing.ipynb` at the top of this folder is
+the course notebook for Chapter 2, kept here for reference. It covers the same ground
+from collection to retrieval, but with TF-IDF (`sklearn`) and an in-memory
+`SimpleVectorDatabase` in place of an embedding model and a real database, so it runs in
+seconds with no key — and it ends at retrieval, with no generation step.
 
 ## Timeline
 

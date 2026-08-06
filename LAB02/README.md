@@ -96,19 +96,24 @@ question half, which is what makes a 90-vector index work at all.
 
 ## How to run
 
+Python 3.12. The embedding model is downloaded on first use; nothing needs an API key.
+
 ```bash
 cd LAB02
-../.venv/bin/python main.py          # interactive; type exit, quit or q to leave
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+python main.py                       # interactive; type exit, quit or q to leave
 ```
 
 The index is committed, so `main.py` runs without rebuilding. If `data/thai_food_qa.txt`
 changes, rebuild first:
 
 ```bash
-../.venv/bin/python labs/lab01_extract_text.py
-../.venv/bin/python labs/lab02_chunking.py
-../.venv/bin/python labs/lab03_create_embeddings.py
-../.venv/bin/python labs/lab04_create_vector_db.py
+python labs/lab01_extract_text.py
+python labs/lab02_chunking.py
+python labs/lab03_create_embeddings.py
+python labs/lab04_create_vector_db.py
 ```
 
 `config.py` resolves every path from its own location, so the folder can be moved without

@@ -27,3 +27,12 @@ Each lab lives in its own folder, `LAB01` through `LAB10`, with the final projec
 | LAB04 | Full RAG system over a Thai Q&A corpus on everyday phone and computer problems, with hybrid retrieval, reranking, and a measured comparison of Thai-language retrieval settings — see [`LAB04/README.md`](LAB04/README.md) | [`LAB04/`](LAB04/) |
 | LAB05 – LAB10 | not started yet | [`LAB05/`](LAB05/) … [`LAB10/`](LAB10/) |
 | Final Project | not started yet | [`Final-Project/`](Final-Project/) |
+
+Each finished lab has its own README covering the same four things: what was changed
+from the lab template, how to run it, what came out of running it, and what the lab does
+not establish. The last of those is the reason the reports differ in length — the
+results section grows only where there are numbers to put in it.
+
+A lab that is my own write-up also has a Thai version, `README.th.md`, linked from the
+first line of each; the two carry the same content and the same figures. Each lab folder
+installs from its own `requirements.txt` and is meant to be run from inside that folder.
