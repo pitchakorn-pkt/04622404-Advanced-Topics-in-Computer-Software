@@ -51,6 +51,13 @@ class RAGPipeline:
         history = self.memory.get_context() if config.USE_MEMORY else ""
 
         # ส่งประวัติให้ตัวปรับคำถาม เฉพาะตอนที่เป็นคำถามต่อเนื่อง
+        # ส่งประวัติให้ตัวปรับคำถาม เฉพาะตอนที่เป็นคำถามต่อเนื่อง
+        #
+        # ข้อจำกัดที่ต้องรู้: ตัวปรับคำถามใช้ประวัติได้เฉพาะเมื่อ USE_QUERY_TRANSFORM
+        # เปิดอยู่ ซึ่งค่าเริ่มต้นปิดไว้ ผลคือประวัติมีผลแค่ตอนเขียนคำตอบ ไม่มีผลตอนค้น
+        # คำถามต่อเนื่องที่ไม่มีคำบอกหัวข้อจึงอาจค้นได้เอกสารคนละเรื่อง
+        # ลองแก้ด้วยการเติมคำถามก่อนหน้าเข้าไปแล้ววัด 2 แบบ ไม่มีแบบไหนดีขึ้น
+        # จึงคงพฤติกรรมเดิมไว้ รายละเอียดอยู่ใน README หัวข้อข้อจำกัด
         transform_history = history if self.memory.is_followup(query) else ""
         queries = self.transformer.transform(query, transform_history)
         time_after_transform = time.time()

@@ -96,13 +96,18 @@ class Generator:
             #print(f"[llm] เรียกไม่สำเร็จ ({error}) — แสดงข้อมูลที่ค้นได้แทน")
             answer = chunks[0]["answer"]
 
+        # ค้นเจอเอกสารไม่ได้แปลว่าเอกสารนั้นเกี่ยวข้อง ตัวค้นคืน top_k มาเสมอ
+        # ตัวที่รู้จริงว่าตอบได้หรือไม่คือ LLM ซึ่งบอกผ่านข้อความปฏิเสธ
+        # เดิมธงนี้เป็น False เสมอเมื่อมี chunk ทำให้ผู้เรียกเข้าใจผิดว่าตอบได้ทุกครั้ง
+        refused = config.NO_CONTEXT_MESSAGE in answer
+
         if config.DISCLAIMER not in answer:
             answer = f"{answer}\n\n{config.DISCLAIMER}"
 
         return {
             "answer": answer.strip(),
-            "sources": self.build_sources(chunks),
-            "no_context": False,
+            "sources": [] if refused else self.build_sources(chunks),
+            "no_context": refused,
         }
 
     def build_sources(self, chunks):    #  สร้างรายการแหล่งอ้างอิง ให้เลข [1] [2] ตรงกับที่อยู่ใน prompt

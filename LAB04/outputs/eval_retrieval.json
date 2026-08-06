@@ -118,7 +118,7 @@
           "ndcg@10": 0.9198
         }
       },
-      "ms_per_query": 22.0
+      "ms_per_query": 20.0
     },
     "bm25_only": {
       "overall": {
@@ -356,7 +356,7 @@
           "ndcg@10": 0.8035
         }
       },
-      "ms_per_query": 20.0
+      "ms_per_query": 19.4
     },
     "hybrid+rerank": {
       "overall": {
@@ -475,7 +475,7 @@
           "ndcg@10": 0.9736
         }
       },
-      "ms_per_query": 486.8
+      "ms_per_query": 484.7
     }
   }
 }
