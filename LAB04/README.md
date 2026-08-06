@@ -1,28 +1,90 @@
 # LAB04 — RAG System Development I
 
-ระบบ RAG ภาษาไทยสำหรับคำถามที่คนทั่วไปเจอเวลาใช้มือถือและคอมพิวเตอร์ ต่อยอดจากโครงของใบงาน DL-04
-โดยเปลี่ยนโดเมนข้อมูลและปรับส่วนที่จัดการภาษาไทย
+A Thai-language RAG system that answers everyday phone and computer questions.
+It builds on the DL-04 lab template: the knowledge base was replaced with a corpus
+written for this assignment, and the parts of the pipeline that handle Thai text were
+reworked and measured rather than assumed.
 
-โค้ดอยู่ใน `src/` `labs/` `evaluation/` `config.py` `build_index.py` `main.py`
-ข้อมูลคือ `data/daily_tech_qa.txt` (194 คู่ถาม-ตอบ) และ `data/eval_paraphrases.txt`
-(คำถามสำหรับวัดผล 60 ข้อ) ทั้งสองไฟล์เขียนขึ้นเองสำหรับงานนี้
+The assignment allows any domain, which raises a question worth answering properly:
+Thai is said to be the harder choice because word segmentation and filtering are weaker
+than in English. This lab keeps Thai and asks whether that is actually true, or whether
+the defaults were simply wrong for the language. Every claim below is backed by a number
+that can be reproduced from the files in this folder.
 
-## โจทย์
+The short answer is that the language was not the problem. Retrieval improved from
+MRR 0.5427 to 0.9482 on the hardest question set. The single largest factor was the
+embedding model, not tokenization. Filtering Thai stopwords — the intuitive fix —
+made results 21% worse, not better.
 
-ใบงานให้เปลี่ยน dataset เป็นโดเมนอะไรก็ได้ ประเด็นที่ต้องตัดสินใจคือจะทำเป็นภาษาอังกฤษ
-ซึ่งเครื่องมือพร้อมกว่า หรือจะยืนยันทำภาษาไทย งานนี้เลือกทำภาษาไทยแต่ไม่ได้เลือกด้วยความรู้สึก
-คำถามที่ตั้งไว้คือ "ภาษาไทยแย่กว่าจริงหรือ หรือเราแค่ยังไม่ได้ตั้งค่าให้ถูก" แล้ววัดหาคำตอบ
+## Structure
 
-คำตอบสั้น ๆ คือปรับให้ดีขึ้นได้มาก MRR ขยับจาก 0.5427 เป็น 0.9482 บนคำถามที่ยากที่สุด
-ตัวแปรที่สำคัญที่สุดคือ embedding model ไม่ใช่การตัดคำหรือการกรองคำอย่างที่คิดกันตอนแรก
-และการ "กรองคำไทยให้ดีขึ้น" กลับทำให้แย่ลง 21% ซึ่งเป็นผลที่ตรงข้ามกับสมมติฐานตั้งต้น
+```text
+LAB04/
+│
+├── data/
+│   ├── daily_tech_qa.txt                   # knowledge base, 194 Q&A pairs in 10 categories
+│   ├── eval_paraphrases.txt                # 60 hand-written test questions
+│   └── golden_set.json                     # generated evaluation set
+│
+├── outputs/
+│   ├── extracted_text.json                 # parsed Q&A pairs with line numbers
+│   ├── chunks.json                         # 194 chunks with metadata
+│   ├── embeddings.npy                      # embedding vectors
+│   ├── retrieval_results.json              # top-k results from lab07
+│   ├── eval_retrieval.json                 # retrieval scores per configuration
+│   ├── eval_query_transform.json           # scores for the query-preparation stage
+│   └── eval_generation.json                # answer quality scores
+│
+├── vector_db/
+│   ├── document.index                      # FAISS index, dense semantic search
+│   ├── bm25_index.pkl                      # BM25 index, exact-token search
+│   ├── chunk_store.json                    # chunks aligned with FAISS order
+│   └── index_meta.json                     # fingerprint of the corpus the index was built from
+│
+├── labs/
+│   ├── lab01_extract_text.py               # extract text from the source file
+│   ├── lab02_chunking.py                   # split text into chunks
+│   ├── lab03_create_embeddings.py          # generate embeddings
+│   ├── lab04_create_vector_db.py           # build the FAISS database
+│   ├── lab05_query_embedding.py            # create query embeddings
+│   ├── lab06_similarity_search.py          # retrieve top-k chunks
+│   └── lab07_complete_retrieval.py         # complete retrieval pipeline
+│
+├── src/
+│   ├── document_loader.py                  # file loading and text extraction
+│   ├── text_splitter.py                    # text chunking
+│   ├── thai_text.py                        # Thai normalisation and tokenisation (added)
+│   ├── embedding_model.py                  # embedding model
+│   ├── vector_store.py                     # FAISS vector database
+│   ├── index_meta.py                       # detect when the index is stale
+│   ├── retriever.py                        # dense-only retrieval
+│   ├── hybrid_retriever.py                 # BM25 + dense + weighted RRF fusion
+│   ├── rerankers.py                        # cross-encoder reranking
+│   ├── query_transform.py                  # query rewrite, multi-query, HyDE
+│   ├── prompt_templates.py                 # prompt templates
+│   ├── generator.py                        # LLM answer generation
+│   ├── memory.py                           # conversation history
+│   └── rag_pipeline.py                     # end-to-end pipeline
+│
+├── evaluation/
+│   ├── metrics.py                          # Hit@k, Recall@k, Precision@k, MRR, nDCG
+│   ├── build_golden_set.py                 # generate the evaluation set
+│   ├── eval_retrieval.py                   # compare retrieval configurations
+│   ├── eval_query_transform.py             # compare query-preparation modes (added)
+│   └── eval_generation.py                  # evaluate answer quality
+│
+├── config.py                               # project configuration
+├── build_index.py                          # build all indexes
+├── requirements.txt                        # dependencies (added)
+└── main.py                                 # run the system
+```
 
-## ฐานความรู้
+## The knowledge base
 
-คลังเป็นคู่ถาม-ตอบภาษาไทย 194 คู่ แบ่งเป็น 10 หมวด ได้แก่ แบตเตอรี่และการชาร์จ
-เครื่องช้าและพื้นที่เต็ม อินเทอร์เน็ตและไวไฟ บัญชีและรหัสผ่าน มิจฉาชีพและความปลอดภัย
-ข้อมูลและการสำรอง แอปและการอัปเดต หน้าจอ เสียง และกล้อง การเลือกซื้อและดูแลเครื่อง
-และการใช้งานเอกสารและงานทั่วไป รูปแบบไฟล์เป็นแบบเดียวกับที่ใบงานกำหนด
+194 Thai question-answer pairs across ten categories: battery and charging, slow devices
+and full storage, internet and Wi-Fi, accounts and passwords, scams and security, data and
+backups, apps and updates, display and audio and camera, buying and maintaining devices,
+and documents and everyday tasks. The file format follows the template.
 
 ```
 [หมวด: มิจฉาชีพและความปลอดภัย]
@@ -30,240 +92,276 @@ Q: รหัสโอทีพีบอกใครได้บ้าง
 A: ไม่มีใครเลย ไม่ว่าจะอ้างเป็นธนาคาร เจ้าหน้าที่ ตำรวจ หรือฝ่ายบริการลูกค้า ...
 ```
 
-เลือกโดเมนนี้เพราะสองเหตุผล ข้อแรกเป็นเรื่องที่คนทั่วไปถามกันจริงทุกวัน ข้อที่สองคำตอบเป็น
-คำแนะนำเชิงวิธีการ ไม่ใช่ตัวเลขสเปกที่ตรวจสอบยากและผิดได้ง่าย ข้อหลังสำคัญกว่าที่คิด
-เพราะคลังที่มีข้อเท็จจริงผิดจะทำให้ทั้งระบบตอบผิดโดยที่ตัววัดยังรายงานว่าค้นเจอถูก
+The domain was chosen for two reasons. It covers questions ordinary people actually ask,
+and its answers are procedural advice rather than specifications. The second reason
+matters more than it appears: an earlier version of this lab used an embedded-systems
+corpus, and checking roughly fifteen of its specific figures against vendor documentation
+found five errors. A corpus whose facts are wrong produces wrong answers while every
+retrieval metric still reports success, which makes the errors invisible to the evaluation.
 
-ตอนออกแบบคลังตั้งใจใส่หัวข้อที่ใกล้กันจนต้องแยกให้ออก ไม่ใช่แค่เพิ่มจำนวน เช่น เครื่องช้า
-เพราะพื้นที่เต็มกับเครื่องช้าเพราะโปรแกรมเริ่มต้นเยอะกับเครื่องช้าหลังอัปเดต หรือการซิงก์
-กับการสำรองข้อมูล หรือล้างแคชกับล้างข้อมูลแอปกับล้างเครื่อง
+The corpus deliberately contains topics that sit close enough together to be confusable:
+a slow device because storage is full, because too many programs start at boot, or because
+of a recent update; syncing versus backing up; clearing a cache versus clearing app data
+versus resetting the device.
 
-## วิธีรัน
+## How to run
 
 ```bash
 pip install -r requirements.txt
-python build_index.py       # สร้าง FAISS + BM25 ครั้งแรกโหลดโมเดลราว 2.2 GB
-python main.py              # ถามตอบแบบโต้ตอบ
+python build_index.py       # builds FAISS + BM25; first run downloads about 2.2 GB
+python main.py              # interactive question answering
 ```
 
-ค่าเริ่มต้นเปิดการจัดอันดับใหม่ไว้ จึงโหลดโมเดลเพิ่มอีกราว 2.2 GB ตอนรัน `main.py`
-ถ้าต้องการให้ LLM เขียนคำตอบต้องตั้ง `GROQ_API_KEY` ก่อน ไม่มีคีย์ก็ยังรันได้โดยตั้ง
-`USE_LLM = False` ใน `config.py` ระบบจะคืนข้อความที่ค้นเจอมาตรง ๆ สวิตช์ทุกตัวอยู่ใน
-หัวข้อที่ 1 ของ `config.py` เปิดปิดแล้ววัดใหม่ได้ทันที
+Reranking is on by default, so `main.py` downloads a further 2.2 GB on first use.
+Answer generation needs `GROQ_API_KEY`. Without a key the system still runs — set
+`USE_LLM = False` in `config.py` and it returns the retrieved text directly. Every switch
+lives in section 1 of `config.py` and can be toggled and re-measured immediately.
 
-ส่วนการวัดผลมีสี่สคริปต์ คือ `evaluation.build_golden_set` สร้างชุดข้อสอบ
-`evaluation.eval_retrieval` เทียบวิธีค้นหา `evaluation.eval_query_transform` วัดขั้นปรับคำถาม
-และ `evaluation.eval_generation` วัดคุณภาพคำตอบ สองตัวหลังต้องมีคีย์ นอกจากนี้
-`evaluation.metrics` มีชุดตรวจสูตรตัววัดด้วยค่าที่คำนวณมือไว้แล้ว
+Evaluation is split across four scripts: `evaluation.build_golden_set` produces the test
+set, `evaluation.eval_retrieval` compares retrieval configurations,
+`evaluation.eval_query_transform` measures the query-preparation stage, and
+`evaluation.eval_generation` scores answer quality. The last two need a key.
+`evaluation.metrics` also carries a self-test of the metric formulas against
+hand-computed values.
 
-## เครื่องมือวัดผลใช้ไม่ได้ ต้องซ่อมก่อน
+## The evaluation set had to be repaired first
 
-ชุดข้อสอบของใบงานสร้างจากคำถามที่อยู่ในคลังเอง แล้วแตกเป็นสี่รูปแบบคือ `verbatim` ที่เป็น
-คำถามต้นฉบับ `natural` ที่เติมคำนำหน้ากับคำลงท้าย `partial` ที่ตัดคำทั่วไปทิ้ง และ `slang`
-ที่แทนศัพท์ด้วยคำที่คนพิมพ์จริง ปัญหาคือทั้งสี่แบบแทบไม่ต่างจากคำถามเดิม พอวัดสัดส่วนคำที่
-ยังเหลืออยู่ด้วยตัวตัดคำเดียวกับที่ระบบใช้ ได้ 1.00, 1.00, 0.99 และ 0.86 ตามลำดับ
+The template generates its test set from the corpus questions themselves, in four
+variants: `verbatim` (unchanged), `natural` (a spoken-style prefix and suffix added),
+`partial` (common words stripped) and `slang` (technical terms swapped for colloquial
+ones). Measuring how much of the original wording each variant retains — using the same
+tokenizer the system uses — gives 1.00, 1.00, 0.99 and 0.86 respectively.
 
-ผลคือทุกการตั้งค่าได้คะแนนเต็ม 1.0000 เท่ากันหมด แยกไม่ออกว่าระบบค้นเก่งจริงหรือแค่จำคำได้
-ถ้าเดินหน้าปรับปรุงต่อโดยไม่ซ่อมตรงนี้ ตัวเลขจะไม่ขยับไม่ว่าจะทำอะไร
+Every configuration therefore scored a flat 1.0000 on all four. The set could not
+distinguish a system that retrieves by meaning from one that merely matches words, and
+no amount of improvement would have moved the numbers.
 
-รูปแบบ `partial` แย่เป็นพิเศษกับคลังนี้ เพราะมันตัดคำด้วยการแยกช่องว่าง แต่ประโยคภาษาไทย
-แทบไม่มีช่องว่าง มันจึงไม่ได้ตัดอะไรเลย ในคลังที่มีศัพท์อังกฤษปนเยอะค่านี้จะต่ำกว่านี้มาก
+`partial` fails on Thai in particular: it strips words by splitting on spaces, but Thai
+sentences barely contain any, so it removes almost nothing. On a corpus with more English
+terms mixed in, that figure would be considerably lower.
 
-ทางแก้คือเขียนคำถามใหม่ด้วยมือ 60 ข้อไว้ใน `data/eval_paraphrases.txt` โดยเลี่ยงคำเดิม
-ให้มากที่สุด เช่นคำถามในคลังที่ว่า "ทำไมเน็ตมือถือช้าในบางที่ทั้งที่ขึ้นเต็มขีด" เขียนใหม่เป็น
-"สัญญาณขึ้นเต็มแต่โหลดอะไรก็ไม่ขึ้น เป็นเพราะอะไร" เหลือคำซ้ำเฉลี่ย 25% ซึ่งเป็นคำหน้าที่
-ที่เลี่ยงไม่ได้ ตัวเลขทุกตัวที่ใช้ตัดสินใจในเอกสารนี้มาจากรูปแบบนี้เท่านั้น
+The fix was to write 60 new questions by hand in `data/eval_paraphrases.txt`, avoiding the
+original wording as far as possible. A corpus question such as *"ทำไมเน็ตมือถือช้าในบางที่ทั้งที่ขึ้นเต็มขีด"*
+became *"สัญญาณขึ้นเต็มแต่โหลดอะไรก็ไม่ขึ้น เป็นเพราะอะไร"*. About 25% of the original tokens survive,
+mostly function words that cannot be avoided. Every figure used for a decision in this
+report comes from that variant alone.
 
-## ผลการทดลอง
+## Results
 
-วัดบนชุดข้อสอบเดียวกันทุกครั้ง 60 คำถาม รูปแบบ `paraphrase` เทียบวิธีค้นหาสี่แบบได้ดังนี้
+All measurements use the same 60 questions in the `paraphrase` variant.
 
-| วิธี | hit@1 | hit@10 | MRR | nDCG@3 | เวลา/คำถาม |
+| Method | hit@1 | hit@10 | MRR | nDCG@3 | per query |
 |---|---|---|---|---|---|
-| dense อย่างเดียว | 0.8500 | 0.9833 | 0.8961 | 0.8982 | 22.0 ms |
-| BM25 อย่างเดียว | 0.4000 | 0.6667 | 0.4953 | 0.4986 | 0.2 ms |
-| hybrid ด้วย RRF | 0.6333 | 0.9500 | 0.7219 | 0.7109 | 20.0 ms |
+| dense only | 0.8500 | 0.9833 | 0.8961 | 0.8982 | 22.0 ms |
+| BM25 only | 0.4000 | 0.6667 | 0.4953 | 0.4986 | 0.2 ms |
+| hybrid with RRF | 0.6333 | 0.9500 | 0.7219 | 0.7109 | 20.0 ms |
 | hybrid + rerank | 0.9333 | 0.9833 | 0.9482 | 0.9438 | 486.8 ms |
 
-รวมทุกรูปแบบคำถาม hybrid+rerank ได้ hit@1 0.9828 · hit@10 0.9957 · MRR 0.9866 · nDCG@3 0.9855
+Across all variants, hybrid + rerank reaches hit@1 0.9828, hit@10 0.9957, MRR 0.9866 and
+nDCG@3 0.9855.
 
-ค่าเฉลี่ยอย่างเดียวบอกอะไรไม่ได้มาก จึงนับข้อที่ผลพลิกจริงบน hit@1 ควบคู่ไปด้วย เทียบ dense
-กับ hybrid แล้วพบว่า dense ตอบถูกคนเดียว 14 ข้อ ส่วน hybrid ถูกคนเดียวแค่ 1 ข้อ (p ประมาณ
-0.0009) เทียบ hybrid กับ hybrid+rerank พบว่ามี 18 ข้อที่ตัวหลังแก้กลับมาได้และไม่มีข้อไหน
-ที่แย่ลง (p น้อยกว่า 0.001) ส่วนเทียบ dense กับ hybrid+rerank ต่างกัน 5 ข้อ (p ประมาณ 0.063)
+Averages alone say little at this sample size, so the number of questions whose result
+actually flips was counted alongside them. Comparing dense against hybrid, dense answers
+14 questions correctly that hybrid gets wrong, while hybrid wins only 1 (McNemar p ≈ 0.0009).
+Comparing hybrid against hybrid + rerank, the reranker recovers 18 questions and loses none
+(p < 0.001). Dense against hybrid + rerank differs by 5 questions (p ≈ 0.063).
 
-สองข้อแรกยืนยันได้ทางสถิติ คือการผสม BM25 ทำให้แย่ลงจริงในคลังนี้ ไม่ใช่ความผันผวน
-และการจัดอันดับใหม่ด้วย cross-encoder ช่วยจริง โดยช่วยมากเป็นพิเศษเมื่อการผสมทำพัง
+The first two are statistically supported: fusing BM25 genuinely hurts on this corpus,
+and cross-encoder reranking genuinely helps, most of all when the fusion has damaged the
+ranking.
 
-### ทำไม BM25 ถึงอ่อนในคลังนี้
+### Why BM25 is weak here
 
-คำถามกับคำตอบแทบไม่มีคำหายากที่ตรงกันเป๊ะ เพราะเป็นภาษาไทยเชิงอธิบายล้วน ต่างจากคลัง
-ที่มีรหัสหรือชื่อรุ่นซึ่ง BM25 จะได้เปรียบ พอถ่วงน้ำหนักเท่ากันตามสูตร RRF ดั้งเดิม
-มันจึงลากผลรวมลง ต้องปรับให้ dense นำ
+Questions and answers share almost no rare exact tokens, because the text is Thai
+explanatory prose throughout. This is the opposite of a corpus full of part numbers or
+error codes, where BM25 has the advantage. Under the original RRF formula, which weights
+both retrievers equally, BM25 drags the combined ranking down.
 
-| dense : bm25 | ปิด rerank | เปิด rerank |
+| dense : bm25 | rerank off | rerank on |
 |---|---|---|
 | 1 : 0 | 0.8961 | 0.9482 |
-| 1 : 0.5 (ค่าที่ใช้) | 0.7219 | 0.9482 |
-| 1 : 1 (ค่าดั้งเดิม) | 0.6967 | 0.9496 |
+| 1 : 0.5 (used) | 0.7219 | 0.9482 |
+| 1 : 1 (original) | 0.6967 | 0.9496 |
 | 1 : 1.5 | 0.6165 | 0.7583 |
 | 0 : 1 | 0.4953 | 0.7583 |
 
-เรื่องที่น่าสนใจคือเมื่อเปิด rerank แล้ว น้ำหนักในช่วง 0 ถึง 1 ให้ผลเหมือนกันทุกข้อ
-เทียบทีละคำถามแล้วต่างกัน 0 ข้อ ผิดที่อันดับหนึ่ง 4 ข้อเท่ากันหมด แปลว่าตัวจัดอันดับใหม่
-กลบผลเสียของ BM25 จนการเลือกน้ำหนักไม่สำคัญ ปุ่มนี้จึงมีผลจริงเฉพาะตอนปิด rerank
-ซึ่งเป็นเหตุผลที่ยังตั้งไว้ที่ 0.5 ไม่ใช่ 0 ค่านี้ขึ้นกับลักษณะของคลัง ไม่ใช่ค่าสากล
-คลังที่มีรหัสหรือชื่อรุ่นเยอะจะกลับกัน จึงต้องวัดใหม่ทุกครั้งที่เปลี่ยนคลัง
+With reranking enabled, any weight between 0 and 1 produces identical results question by
+question — zero differences, four wrong at rank one in every case. The reranker reorders
+the whole candidate list anyway, so the weight only matters when reranking is off, which
+is why it is set to 0.5 rather than 0. This value reflects the shape of the corpus, not a
+universal setting; a corpus full of model numbers would invert it. It has to be measured
+again whenever the corpus changes.
 
-### embedding model คือชั้นที่ให้ผลมากที่สุด
+### The embedding model dominates everything else
 
-| โมเดล | มิติ | เพดาน token | MRR | เวลา/คำถาม | เข้ารหัสคลัง |
+| Model | dims | token limit | MRR | per query | corpus encode |
 |---|---|---|---|---|---|
 | `paraphrase-multilingual-MiniLM-L12-v2` | 384 | 128 | 0.5427 | 5.9 ms | 8 s |
 | `intfloat/multilingual-e5-base` | 768 | 512 | 0.8387 | 8.5 ms | 9 s |
 | `BAAI/bge-m3` | 1024 | 8192 | 0.8961 | 22.3 ms | 12 s |
 
-เปลี่ยนโมเดลตัวเดียว MRR ขึ้นจาก 0.5427 เป็น 0.8961 โดยเวลาต่อคำถามต่างกันเพียง
-16 มิลลิวินาที ซึ่งไม่มีความหมายเมื่อเทียบกับเวลาที่ LLM ใช้เขียนคำตอบ
+Changing one model raised MRR from 0.5427 to 0.8961 while costing 16 additional
+milliseconds per query, which is nothing next to the time the LLM spends writing an answer.
 
-ระหว่างทางพบว่า `CHUNK_SIZE = 400` ในใบงานไม่ใช่ค่าที่เลือกมาลอย ๆ วัดแล้ว chunk ขนาด
-400 ตัวอักษรของข้อความไทยกินพื้นที่สูงสุด 127 token ขณะที่ MiniLM รับได้ 128 คือชนเพดานพอดี
-ค่านี้จึงเป็นเพดานของโมเดลเดิม ไม่ใช่ค่าที่เหมาะที่สุดโดยธรรมชาติ
+A related finding: `CHUNK_SIZE = 400` in the template is not an arbitrary number. A
+400-character chunk of Thai text reaches at most 127 tokens, against MiniLM's limit of 128 —
+exactly at the ceiling. The value is a property of the original model, not an optimum.
 
-### เติมตัวลวงแล้วคะแนนแทบไม่ขยับ แต่ข้อสอบคมขึ้น
+### Adding distractors barely moved the scores but sharpened the test
 
-ตอนแรกคลังมี 172 คู่ แล้วเติมอีก 22 คู่ที่จงใจให้ใกล้ของเดิมจนต้องแยกให้ออก เช่น ล้างแคช
-กับล้างข้อมูลแอป เปลี่ยนแบตกับเปลี่ยนเครื่องกับเปลี่ยนจอ เปลี่ยนรหัสผ่านกับเปลี่ยนรหัสไวไฟ
-และแรมเต็มกับพื้นที่เต็ม
+The corpus started at 172 pairs. A further 22 were added specifically to sit next to
+existing entries: clearing a cache versus clearing app data, replacing a battery versus a
+whole device versus a screen, an account password versus a Wi-Fi password, RAM full versus
+storage full.
 
-เพื่อให้เทียบก่อนหลังได้จริง `build_golden_set.py` ถูกแก้ให้เลือกข้อที่มีคำถามเขียนมือไว้แล้ว
-ก่อนเสมอ ชุดข้อสอบจึงเป็นคำถามชุดเดิม 60 ข้อทั้งก่อนและหลัง เอกสารที่เพิ่มเข้ามาทำหน้าที่
-เป็นตัวลวงล้วน ทำให้เป็นการทดลองแบบควบคุมที่เปลี่ยนตัวแปรเดียว
+To make before and after comparable, `build_golden_set.py` was changed to select questions
+that already have a hand-written paraphrase before filling the remainder at random. The
+test set is therefore the same 60 questions in both runs, and the added documents act
+purely as distractors — one variable changed, nothing else.
 
-| | 172 เอกสาร | 194 เอกสาร |
+| | 172 documents | 194 documents |
 |---|---|---|
-| hybrid+rerank hit@1 | 0.9500 | 0.9333 |
-| hybrid+rerank MRR | 0.9653 | 0.9482 |
-| dense vs hybrid ต่างกันกี่ข้อ | 10 : 1 | 14 : 1 |
-| hybrid vs +rerank ต่างกันกี่ข้อ | 0 : 15 | 0 : 18 |
-| ค่า p ของ dense vs hybrid | 0.012 | 0.0009 |
+| hybrid + rerank hit@1 | 0.9500 | 0.9333 |
+| hybrid + rerank MRR | 0.9653 | 0.9482 |
+| dense vs hybrid, questions differing | 10 : 1 | 14 : 1 |
+| hybrid vs + rerank, questions differing | 0 : 15 | 0 : 18 |
+| p value, dense vs hybrid | 0.012 | 0.0009 |
 
-คะแนนรวมแทบไม่ขยับ hybrid+rerank ผิดเพิ่มจาก 3 เป็น 4 ข้อเท่านั้น แต่ช่องว่างระหว่าง
-การตั้งค่ากว้างขึ้นชัดเจนและค่า p ดีขึ้นหนึ่งอันดับความ บทเรียนคือถ้าดูแค่คะแนนเฉลี่ย
-จะสรุปผิดว่าตัวลวงไม่ได้ผล สิ่งที่ควรดูควบคู่กันคือจำนวนคำถามที่พลิกผลระหว่างการตั้งค่า
-ข้อสอบที่คะแนนสูงยังใช้เปรียบเทียบได้ ถ้าจำนวนข้อที่พลิกมีมากพอ
+The headline scores hardly moved — hybrid + rerank went from 3 to 4 wrong — but the gap
+between configurations widened and the p value improved by an order of magnitude. Reading
+the averages alone would have concluded that the distractors achieved nothing. The useful
+signal is the number of questions that flip between configurations. A test set can score
+highly and still be useful for comparison, as long as enough questions change hands.
 
-### ขั้นปรับคำถามก่อนค้น
+### Query preparation
 
-ทดสอบสามแบบคือส่งคำถามดิบ ๆ ปิดตารางแทนคำ และเปิดเต็มรูปแบบ ทั้งสามได้ hit@1 0.9333
-hit@10 0.9833 MRR 0.9482 และ nDCG@3 0.9438 เท่ากันทุกหลัก ใช้เวลาราว 0.5 วินาทีเท่ากัน
+Three modes were compared: raw questions, `normalize_query` with its substitution table
+disabled, and the full version. All three produced hit@1 0.9333, hit@10 0.9833, MRR 0.9482
+and nDCG@3 0.9438, to every digit, at roughly 0.5 seconds per question.
 
-ตารางแทนคำไม่มีผลเลยในคลังนี้ ทั้งที่ออกแบบมาให้อุดช่องว่างข้ามระบบตัวอักษรโดยตรง
-เช่นแปลง `wifi` เป็น `ไวไฟ` หรือ `อัพเดท` เป็น `อัปเดต` เหตุผลคือ bge-m3 จับคู่คำเหล่านี้
-ได้เองในเชิงความหมายอยู่แล้ว และรูปแบบ `slang` ที่ออกแบบมาทดสอบเรื่องนี้โดยเฉพาะก็ตันที่
-1.0000 ตั้งแต่ยังไม่ทำอะไร ตารางนี้ถูกเก็บไว้เพราะไม่มีต้นทุน แต่ต้องบันทึกตามตรงว่าวัดแล้วไม่ได้อะไร
+The substitution table has no measurable effect on this corpus, despite being written to
+close exactly the gap it targets — mapping `wifi` to `ไวไฟ`, or the common misspelling
+`อัพเดท` to `อัปเดต`. The reason is that bge-m3 already treats those as the same concept,
+and the `slang` variant built to test this saturates at 1.0000 before anything is applied.
+The table is kept because it costs nothing, but it must be recorded that it was measured
+and found to do nothing here.
 
-โหมดที่ใช้ LLM ทั้งสามแบบ (`rewrite` `multi_query` `hyde`) ยังไม่มีตัวเลขที่เชื่อถือได้
-เพราะโควตาของ Groq ระดับฟรีไม่พอให้รันจนจบ ตัว `QueryTransformer.transform()` ดักข้อผิดพลาด
-แล้วคืนคำถามเดิมอย่างเงียบ ๆ ซึ่งดีตอนใช้งานจริงแต่อันตรายตอนวัดผล เพราะได้ตัวเลขที่ดู
-สมเหตุสมผลทั้งที่ขั้นที่วัดไม่ได้ทำงานเลย จึงแก้ `eval_query_transform.py` ให้ห่อตัว LLM
-ไว้นับการเรียกและการล้มเหลว แล้วบันทึกเป็นฟิลด์ `llm_calls` `llm_failures` และ `usable`
-แถวที่ `usable` เป็น false ห้ามนำไปใช้
+The three LLM-backed modes (`rewrite`, `multi_query`, `hyde`) still have no trustworthy
+numbers, because the free Groq quota runs out mid-run. `QueryTransformer.transform()`
+catches the failure and silently returns the original question, which is correct behaviour
+in production but dangerous during evaluation: it yields plausible-looking numbers for a
+stage that never executed. `eval_query_transform.py` now wraps the LLM to count calls and
+failures and records `llm_calls`, `llm_failures` and `usable`. Rows where `usable` is false
+must not be used.
 
-### คุณภาพคำตอบ
+### Answer quality
 
-วัดด้วย `llama-3.3-70b-versatile` บน Groq กับ 20 คำถามแรกของชุดข้อสอบ เปิด hybrid + rerank
-และปิดการจำบทสนทนาเพื่อให้แต่ละข้อเป็นอิสระ ผลคือค้นเจอเอกสารที่ถูกใน 3 ชิ้นที่ส่งให้ LLM
-0.95 มีการอ้างอิงหมายเลขในคำตอบครบทุกข้อ ไม่มีข้อไหนตอบว่าไม่รู้ และใช้เวลาเฉลี่ย
-3.17 วินาทีต่อคำถาม สัดส่วนคำที่ปรากฏในเอกสารอ้างอิงอยู่ที่ 0.79 และคำที่ตรงกับคำตอบมาตรฐาน 0.60
+Measured with `llama-3.3-70b-versatile` on Groq over the first 20 test questions, with
+hybrid + rerank enabled and conversation memory disabled so each question stands alone.
+The correct document appeared among the three passed to the LLM in 0.95 of cases, every
+answer carried an inline citation, none refused, and the average was 3.17 seconds per
+question. Word overlap with the reference passages was 0.79, and with the reference answer
+0.60.
 
-สองค่าหลังต้องอ่านด้วยความระวัง เพราะเป็นเพียงสัดส่วนคำที่ซ้ำกัน ไม่ใช่การตัดสินความถูกต้อง
-คำตอบที่เรียบเรียงใหม่ด้วยคำอื่นจะได้คะแนนต่ำทั้งที่ถูกต้อง ใช้ดูแนวโน้มว่ายึดตามเอกสาร
-หรือแต่งเองได้ แต่ใช้สรุปว่าถูกหรือผิดไม่ได้ โครงเดิมมี prompt สำหรับให้ LLM เป็นผู้ตัดสิน
-อยู่ใน `prompt_templates.py` แล้ว แต่ยังไม่ได้ถูกนำมาใช้ ซึ่งเป็นสิ่งที่ควรทำต่อ
+Those last two need care. They are token-overlap ratios, not correctness judgements: an
+answer rephrased in different words scores low while being entirely right. They indicate
+whether an answer stays close to the source or drifts, and nothing more. The template
+already contains a prompt for using an LLM as a judge in `prompt_templates.py`, but it is
+not yet wired in — that is the obvious next step.
 
-## สิ่งที่ทำแล้วไม่ได้ผล
+## What did not work
 
-หัวข้อนี้สำคัญพอ ๆ กับหัวข้อที่ได้ผล เพราะทุกข้อในนี้คือสิ่งที่ "ควรจะช่วย" ตามสามัญสำนึก
-แต่วัดแล้วไม่จริง
+This section carries as much weight as the results. Each item is something that should
+help by common sense, and did not.
 
-เรื่องแรกคือการตัด stopword ภาษาไทย ซึ่งทำให้แย่ลง 21% ไม่ใช่ดีขึ้น เมื่อไม่ตัดได้ MRR 0.4953
-ที่ความยาวเฉลี่ย 95 โทเคนต่อเอกสาร พอตัดด้วยรายการของ pythainlp เหลือ MRR 0.3890
-ที่ 47 โทเคน เหตุผลมีสองข้อ ข้อแรก BM25 ลดน้ำหนักคำที่พบทุกที่ด้วย IDF อยู่แล้ว การตัดทิ้ง
-จึงไม่ได้อะไรเพิ่ม แต่ไปทำให้ความยาวเอกสารหายไปครึ่งหนึ่งซึ่งกระทบสูตรถ่วงความยาวทั้งคลัง
-ข้อที่สองรายการ stopword มี 1030 คำและรวม "ทำไม" "ยังไง" "ต่างกัน" ไว้ด้วย ซึ่งเป็นคำที่
-บอกว่าผู้ใช้กำลังถามอะไร ไม่ใช่คำฟุ่มเฟือย
+**Removing Thai stopwords made retrieval 21% worse.** Leaving them in gives MRR 0.4953 at
+an average of 95 tokens per document; removing them with the pythainlp list gives 0.3890 at
+47 tokens. There are two reasons. BM25 already discounts frequent terms through IDF, so
+removal adds nothing, while halving document length disturbs the length-normalisation term
+across the whole corpus. And the list contains 1030 entries including *ทำไม*, *ยังไง* and
+*ต่างกัน* — words that carry what the user is asking, not filler.
 
-ข้อนี้เป็นหลักฐานตรงข้ามกับสมมติฐานตั้งต้นที่ว่าภาษาไทยแย่เพราะกรองคำได้ไม่ดีพอ ปัญหา
-ไม่ได้อยู่ที่การกรองคำ และการกรองให้หนักขึ้นทำให้แย่ลง การทดลองเดียวกันนี้เคยรันกับคลัง
-คนละโดเมนมาก่อนแล้วได้ผลถอย 19% ใกล้เคียงกัน จึงไม่ใช่ลักษณะเฉพาะของคลังใดคลังหนึ่ง
+This is direct evidence against the premise that Thai underperforms because filtering is
+inadequate. The problem is not filtering, and filtering harder makes it worse. The same
+experiment on an unrelated corpus in an earlier iteration produced a 19% drop, so this is
+not a quirk of one dataset.
 
-เรื่องที่สองคือการปรับข้อความให้เป็นรูปมาตรฐาน ซึ่งไล่วัดทีละขั้นแล้วได้ MRR 0.4834 เท่าเดิม
-ทั้งตอนเพิ่มการปรับรูปข้อความและตอนเพิ่มการรวมคำที่มียัติภังค์ มีเพียงพจนานุกรมโดเมนที่ขยับ
-ขึ้นเป็น 0.4953 คือหนึ่งคำถาม จากการที่ `พาวเวอร์แบงก์` เคยถูกฉีกเป็น 2 ชิ้นและ `เอสเอสดี`
-เป็น 3 ชิ้น ทั้งหมดนี้อยู่ในระดับที่ยืนยันทางสถิติไม่ได้ แต่เก็บไว้เพราะเป็นเกราะกันข้อมูล
-ที่รูปแบบไม่ตรงกันซึ่งจะเจอเมื่อคลังโตขึ้น
+**Normalisation alone changed nothing.** Measured step by step, the template's tokenizer
+scores MRR 0.4834; adding text normalisation keeps it at 0.4834; adding hyphen joining
+keeps it at 0.4834. Only the domain dictionary moved it, to 0.4953 — a single question,
+gained because `พาวเวอร์แบงก์` had been split in two and `เอสเอสดี` in three. None of this
+is statistically meaningful. It is kept because it guards against inconsistently encoded
+input, which will appear as the corpus grows.
 
-เรื่องที่สามคือการเติมบริบทให้คำถามต่อเนื่อง การจำบทสนทนาเปิดไว้เป็นค่าเริ่มต้น แต่ทดสอบ
-แล้วพบว่าประวัติมีผลแค่ตอนเขียนคำตอบ ไม่มีผลตอนค้น เพราะ `QueryTransformer` ใช้ประวัติได้
-เฉพาะเมื่อเปิดโหมดที่ใช้ LLM ซึ่งค่าเริ่มต้นปิดอยู่ คำถามอย่าง "แล้วต้องเปลี่ยนตอนไหน" จึงถูก
-ส่งไปค้นดิบ ๆ โดยไม่มีอะไรบอกว่ากำลังพูดถึงเรื่องอะไร
+**Carrying conversation context into retrieval did not help.** Memory is on by default, but
+testing showed it reaches only the answer prompt, never the search: `QueryTransformer` uses
+history only when an LLM mode is enabled, and those are off by default. A follow-up such as
+*"แล้วต้องเปลี่ยนตอนไหน"* is therefore searched with nothing indicating the subject.
 
-จึงสร้างชุดทดสอบบทสนทนาสองรอบ 8 เคสแล้วลองแก้สองวิธี แบบเดิมค้นถูกที่อันดับหนึ่ง 5 จาก 8
-และอยู่ใน 3 อันดับแรก 6 จาก 8 การต่อคำถามก่อนหน้าเข้าไปในคำค้นทำให้อยู่ใน 3 อันดับแรก
-เพิ่มเป็น 7 แต่อันดับหนึ่งเหลือ 0 เพราะเอกสารของคำถามรอบก่อนขึ้นมาแทนทุกเคส ซึ่งกินช่อง
-บริบทไปหนึ่งในสามช่องให้เรื่องที่ผู้ใช้เพิ่งได้คำตอบไปแล้ว ส่วนการใส่เป็นคำค้นเสริมให้ RRF รวม
-ได้ 5 กับ 6 เท่าเดิมเป๊ะ ไม่มีวิธีไหนดีขึ้นจริงจึงถอนออกทั้งคู่และคงพฤติกรรมเดิมไว้
-ทางที่ถูกตามที่ใบงานออกแบบไว้คือเปิดโหมด `rewrite` ให้ LLM เขียนคำถามต่อเนื่องให้สมบูรณ์
-ในตัว แต่โหมดที่ใช้ LLM ยังวัดไม่สำเร็จ จึงยังยืนยันไม่ได้ว่าช่วยจริง
+An eight-case two-turn test set was built and two fixes were tried. The baseline finds the
+right document at rank one in 5 of 8 cases and within the top three in 6 of 8. Prepending
+the previous question raised the top-three figure to 7 but dropped rank one to 0, because
+the previous question's own document took first place in every case, consuming one of the
+three context slots with something the user had just been told. Adding it as an extra RRF
+query changed nothing at all. Neither is an improvement, so both were reverted. The path
+the template intends is enabling `rewrite` so the LLM makes the follow-up self-contained,
+but the LLM modes remain unmeasured.
 
-เรื่องสุดท้ายคือการตัด chunk ตามขอบประโยค ซึ่งวัดไม่ออกเลยในคลังนี้ เพราะมี 194 คู่ถาม-ตอบ
-แตกเป็น 194 chunk พอดี แปลว่าไม่มีคำตอบใดยาวพอจะถูกตัด การเปลี่ยนวิธีตัดจึงขยับตัวเลข
-ไม่ได้ จึงไม่ทำและบันทึกเหตุผลไว้แทนที่จะทำทิ้งไว้เฉย ๆ
+**Sentence-aware chunking cannot be measured here.** The corpus has 194 pairs producing
+exactly 194 chunks, meaning no answer is long enough to be split. Changing the splitting
+strategy cannot move any number, so it was not implemented, and the reason recorded instead.
 
-## สิ่งที่แก้จากโครงเดิม
+## Changes to the template
 
-ส่วนที่เพิ่มเข้ามาใหม่คือ `src/thai_text.py` ซึ่งรวมการเตรียมข้อความไว้ที่เดียว เพื่อให้ฝั่ง
-สร้าง index กับฝั่งค้นหาใช้ตรรกะเดียวกันเสมอ ปัญหาที่แก้ได้แก่ ศัพท์ทับศัพท์ถูกตัดมั่ว
-(`เอสเอสดี` เคยกลายเป็นสามชิ้น `พาวเวอร์แบงก์` เคยกลายเป็นสองชิ้น) ข้อความไทยที่หน้าตา
-เหมือนกันแต่ไบต์ต่างกัน (`เเปลก` กับ `แปลก`) เลขไทยที่ถูกฉีก และชื่อที่มียัติภังค์อย่าง
-`Wi-Fi` ที่เคยกลายเป็น `wi` กับ `fi` วัดแล้วพจนานุกรมของ `newmm` ตัดศัพท์ในโดเมนนี้ผิด
-9 จาก 40 คำ จึงเพิ่มพจนานุกรมเฉพาะโดเมนเข้าไป
+`src/thai_text.py` is new. It centralises text preparation so that indexing and querying
+always follow the same path. It fixes transliterated terms being shredded — `เอสเอสดี`
+became three fragments and `พาวเวอร์แบงก์` two — Thai text that looks identical but differs
+byte for byte (`เเปลก` against `แปลก`), Thai numerals being split, and hyphenated names such
+as `Wi-Fi` becoming `wi` and `fi`. Measurement showed `newmm` mis-segmenting 9 of 40 domain
+terms, which is why a domain dictionary was added.
 
-มีข้อควรระวังสำหรับคนที่จะทำตาม คือ `dict_trie()` แทนที่พจนานุกรมหลัก ไม่ใช่รวมกับมัน
-ต้องส่ง `set(thai_words()) | set(DOMAIN_WORDS)` ไม่งั้นตัวตัดคำจะไม่รู้จักคำไทยอื่นเลย
-และพังหนักกว่าเดิม
+One caveat for anyone doing the same: `dict_trie()` replaces the main dictionary rather than
+extending it. It must be given `set(thai_words()) | set(DOMAIN_WORDS)`, or the tokenizer
+loses every other Thai word and performs worse than before.
 
-นอกจากนี้ยังเจอบั๊กในโครงเดิมหกจุด ที่ `src/generator.py` คลาส `NoLLM` แยก prompt ด้วย
-คีย์ภาษาอังกฤษ `"reference data :"` แต่ prompt จริงเป็นภาษาไทย ทำให้โหมดไม่ใช้ LLM
-ตอบว่าไม่พบข้อมูลทุกครั้ง แก้โดยประกาศตัวคั่นไว้ที่ `prompt_templates.py` ที่เดียว
-ที่ไฟล์เดียวกันธง `no_context` เป็น false เสมอเมื่อมี chunk แต่ตัวค้นคืน top-k มาทุกครั้ง
-แม้ไม่เกี่ยวข้อง ผู้เรียกจึงเข้าใจผิดว่าตอบได้ทุกคำถาม แก้โดยดูจากข้อความปฏิเสธของ LLM แทน
+Six bugs in the template were found and fixed:
 
-ที่ `src/prompt_templates.py` กฎข้อ 2 สั่งให้ตอบว่าไม่รู้ ส่วนข้อ 3 สั่งให้อ้างอิงเสมอ
-โมเดลทำตามทั้งคู่จึงได้คำตอบว่า "ไม่พบข้อมูล [1] [2] [3]" แก้โดยแยกเงื่อนไขให้ชัด
-ที่ `evaluation/eval_retrieval.py` มีสองจุด จุดแรก `all_misses = misses` เขียนทับทุกรอบ
-เหลือรายงานเฉพาะการตั้งค่าสุดท้าย จุดที่สองเรียกตัวค้นหาโดยตรงโดยข้ามขั้นปรับคำถามที่
-`main.py` ใช้จริง จึงรายงานตัวเลขต่ำกว่าระบบจริง ที่ `main.py` ส่วนพิมพ์แหล่งอ้างอิงถูก
-คอมเมนต์ทิ้งทำให้ `SHOW_SOURCES` ไม่มีผล และที่ `src/index_meta.py` เทียบไฟล์ต้นทางด้วย
-เวลาแก้ไขล่าสุดซึ่ง git ตั้งใหม่ตอน checkout ทำให้ clone ใหม่ถูกเตือนว่า index ล้าสมัย
-ทุกครั้งทั้งที่ไฟล์เหมือนเดิม แก้เป็นเทียบด้วย SHA-256 ของเนื้อหา
+- `src/generator.py` — `NoLLM` split the prompt on the English marker `"reference data :"`
+  while the prompt itself is Thai, so the no-LLM mode always answered "not found". The
+  markers are now declared once in `prompt_templates.py` and shared.
+- `src/generator.py` — the `no_context` flag was false whenever any chunk came back, but
+  the retriever always returns top-k regardless of relevance, so callers were told the
+  system had answered even when it had refused. It is now derived from the refusal message.
+- `src/prompt_templates.py` — rule 2 told the model to answer "not found" when the context
+  was insufficient, and rule 3 told it to always cite. It obeyed both and produced
+  "not found [1] [2] [3]". The rules are now conditional on each other.
+- `evaluation/eval_retrieval.py` — `all_misses = misses` overwrote the list each run, so
+  only the last configuration was reported. It now accumulates per configuration.
+- `evaluation/eval_retrieval.py` — the benchmark called the retriever directly, bypassing
+  the query-preparation step that `main.py` always applies, and therefore reported lower
+  figures than the system actually achieves.
+- `src/index_meta.py` — the corpus was compared by modification time, which git resets on
+  checkout, so a fresh clone was warned that its index was stale on every run even though
+  the file was byte-identical. It now compares a SHA-256 of the contents.
 
-ของอื่นที่เพิ่มคือ `groq` ใน `LLM_PROVIDERS` พร้อมข้อความแจ้งชัดเจนเมื่อไม่พบคีย์
-`requirements.txt` ซึ่งโครงเดิมไม่มี ปุ่มถ่วงน้ำหนัก RRF ใน `config.py` ซึ่งกลายเป็น
-ตัวชี้ขาดในคลังนี้ และ `evaluation/eval_query_transform.py` สำหรับวัดขั้นปรับคำถาม
-ซึ่งเดิมไม่มีใครวัด
+Also added: `groq` in `LLM_PROVIDERS` with a clear message when the key is missing;
+`requirements.txt`, which the template lacked; the RRF weighting parameters in `config.py`,
+which turned out to decide the outcome on this corpus; and
+`evaluation/eval_query_transform.py`, since nothing previously measured that stage.
 
-## ข้อจำกัด
+## Limitations
 
-ชุดข้อสอบมี 60 ข้อ ข้อสรุปที่ผ่านนัยสำคัญมีเพียงสองข้อที่ระบุไว้ ส่วนต่างอื่นไม่ควรตีความ
-ว่ามีความหมาย และการตั้งค่าที่ดีที่สุดเหลือผิดเพียง 4 ข้อจาก 60 ทำให้แทบไม่มีที่ว่างให้วัด
-ว่าอะไรดีขึ้นได้อีก ข้อสรุปที่ว่าตารางแทนคำไม่ช่วยจึงอาจเป็นเพราะไม่มีที่ให้ช่วย ไม่ใช่เพราะ
-มันไม่มีประโยชน์
+The test set has 60 questions. Only the two conclusions marked as significant should be
+read as established; other differences should not be interpreted as meaningful. The best
+configuration leaves just 4 of 60 wrong, so there is little headroom left to detect further
+improvement — the finding that the substitution table does not help may reflect the absence
+of room to help rather than the absence of value.
 
-คำถามที่เขียนใหม่ 60 ข้อและคลังทั้งหมดมาจากคนเดียวกัน ผู้เขียนจึงรู้ว่าคำตอบอยู่ที่ไหน
-ตัวเลขที่ได้ควรถือเป็นขอบบน ผู้ใช้จริงที่ไม่เคยเห็นคลังจะได้ผลแย่กว่านี้ นอกจากนี้คำถาม
-ที่เขียนใหม่ยังเหลือคำซ้ำกับต้นฉบับเฉลี่ย 25% จึงไม่ใช่การทดสอบที่ปลอดคำร่วมโดยสมบูรณ์
+The corpus and the 60 rewritten questions come from the same author, who therefore knew
+where the answers were. The figures should be read as an upper bound; a user who has never
+seen the corpus would do worse. The rewritten questions also retain about 25% of the
+original tokens, so this is not a fully disjoint-vocabulary test.
 
-ชุดข้อสอบสร้างจากคลังเดียวกับที่ใช้ค้น จึงวัดได้เฉพาะว่าหาเจอไหม ไม่ได้วัดว่าคลังครอบคลุม
-คำถามจริงแค่ไหน และโหมดปรับคำถามที่ใช้ LLM ทั้งสามแบบยังไม่มีตัวเลขเพราะโควตาไม่พอ
+The test set is drawn from the same corpus being searched, so it measures only whether the
+system finds what is there, not whether the corpus covers the questions people actually
+ask. And the three LLM-backed query-preparation modes remain unmeasured for lack of quota.
