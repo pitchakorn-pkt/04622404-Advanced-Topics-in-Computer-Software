@@ -5,13 +5,15 @@
 # Retrieval quality depends on the user's query. Real users often write
 # short or ambiguous questions, or mix Thai transliteration with English terms.
 #
-#     "ไวไฟต่อไม่ติด"            ← Thai transliteration
-#     Knowledge base: "Wi-Fi"     ← BM25 sees these as unrelated tokens
+#     "wifi ต่อไม่ติด"           ← user types the English form
+#     Knowledge base: "ไวไฟ"      ← BM25 sees these as unrelated tokens
+#
+#     "อัพเดทแล้วเครื่องช้า"      ← common Thai misspelling of อัปเดต
 #
 #     "แล้วอันไหนดีกว่ากัน"       ← unclear without context
 #
-# Since the knowledge base keeps technical terms in English, query transformation
-# helps bridge the gap between user language and stored documents.
+# Since the knowledge base uses Thai transliterations and the correct spelling,
+# query transformation helps bridge the gap between user language and stored documents.
 #
 # Two levels are available:
 #
@@ -44,22 +46,26 @@ from src.prompt_templates import HYDE_PROMPT, MULTI_QUERY_PROMPT, REWRITE_PROMPT
 # ว่า "ไวไฟ" แต่ในคลังเขียนว่า "Wi-Fi" ซึ่ง BM25 มองเป็นคนละคำโดยสิ้นเชิง
 # การแมปตรงนี้จึงเป็นตัวอุดช่องว่างข้ามระบบตัวอักษรก่อนถึงขั้นค้นหา
 SLANG_MAP = {
-    "ไวไฟ": "Wi-Fi",
-    "wifi": "Wi-Fi",
-    "WiFi": "Wi-Fi",
-    "ไอทูซี": "I2C",
-    "เอสพีไอ": "SPI",
-    "ยูอาร์ต": "UART",
-    "จีพีไอโอ": "GPIO",
-    "เอ็มคิวทีที": "MQTT",
-    "บลูทูธ": "Bluetooth",
-    "โลรา": "LoRa",
-    "คาปา": "ตัวเก็บประจุ",
-    "เร็กกูเลเตอร์": "ตัวควบคุมแรงดัน",
-    "บอดเรต": "ความเร็วบอด",
-    "หลับลึก": "โหมดหลับลึก",
+    # คำอังกฤษที่คนพิมพ์ แต่ในคลังเขียนเป็นคำทับศัพท์ไทย
+    "Wi-Fi": "ไวไฟ",
+    "WiFi": "ไวไฟ",
+    "wifi": "ไวไฟ",
+    "Bluetooth": "บลูทูธ",
+    "bluetooth": "บลูทูธ",
+    "cloud": "คลาวด์",
+    "OTP": "โอทีพี",
+    "otp": "โอทีพี",
+    "app": "แอป",
+    "backup": "สำรองข้อมูล",
+    "password": "รหัสผ่าน",
+    # คำไทยที่คนสะกดผิดกันประจำ
+    "อัพเดท": "อัปเดต",
+    "อัพเดต": "อัปเดต",
+    "โน๊ตบุ๊ค": "โน้ตบุ๊ก",
+    "โน๊ตบุ้ค": "โน้ตบุ๊ก",
     "รีสตาร์ท": "รีสตาร์ต",
-    "กินไฟ": "ใช้พลังงาน",
+    "เน็ท": "เน็ต",
+    "แบตเตอรี": "แบตเตอรี่",
 }
 
 # คำลงท้ายที่ไม่ช่วยในการค้นหา

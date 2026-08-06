@@ -34,7 +34,7 @@ VECTOR_DB_DIR = os.path.join(BASE_DIR, "vector_db")
 
 
 # clack python build_index.py
-SOURCE_FILE = os.path.join(DATA_DIR, "iot_qa.txt")
+SOURCE_FILE = os.path.join(DATA_DIR, "daily_tech_qa.txt")
 GOLDEN_SET_FILE = os.path.join(DATA_DIR, "golden_set.json")
 PARAPHRASE_FILE = os.path.join(DATA_DIR, "eval_paraphrases.txt")   # คำถามเขียนใหม่ด้วยมือ ใช้วัดผลเท่านั้น
 
@@ -75,9 +75,18 @@ CANDIDATE_K = 20        # ดึง TOP_K
 RRF_K = 60              # ค่าคงที่ของสูตร RRF
 
 # น้ำหนักของแต่ละวิธีตอนรวมอันดับ — ค่าเท่ากันคือสูตร RRF ดั้งเดิม
-# ปรับได้เมื่อวัดแล้วพบว่าวิธีหนึ่งแม่นกว่าอีกวิธีอย่างสม่ำเสมอในคลังนี้
+#
+# คลังนี้ต้องถ่วงให้ dense นำ เพราะคำถามกับคำตอบแทบไม่มีคำหายากที่ตรงกันเป๊ะ
+# BM25 จึงอ่อนมากและถ้าให้น้ำหนักเท่ากันจะลากผลรวมลง วัดที่ variant paraphrase
+#
+#   dense 1 : bm25 0        MRR 0.9653   (ไม่ใช้ BM25 เลย)
+#   dense 1 : bm25 0.5      MRR 0.9653   <- ค่าที่ใช้ เท่ากับข้างบนแต่ยังได้การจับคำตรงตัวไว้
+#   dense 1 : bm25 1.0      MRR 0.9486   (ค่าดั้งเดิมของสูตร RRF)
+#   dense 1 : bm25 1.5      MRR 0.7750
+#
+# ค่านี้ขึ้นกับลักษณะของคลัง ไม่ใช่ค่าสากล คลังที่มีรหัสหรือชื่อรุ่นเยอะจะกลับกัน
 DENSE_WEIGHT = 1.0
-BM25_WEIGHT = 1.0
+BM25_WEIGHT = 0.5
 
 RERANK_MODEL_NAME = "BAAI/bge-reranker-v2-m3"   # ใช้เมื่อ USE_RERANK = True
 
@@ -105,7 +114,7 @@ LLM_PROVIDERS = {
 # 6. ข้อความและการวัดผล
 MEMORY_MAX_TURNS = 6    # จำนวนรอบของการจำบทสนทนา
 NO_CONTEXT_MESSAGE = "ขออภัย ไม่พบข้อมูลที่เกี่ยวข้อง"
-DISCLAIMER = "หมายเหตุ: ข้อมูลนี้ใช้เพื่อการศึกษา ควรตรวจสอบกับเอกสารของผู้ผลิตก่อนใช้งานจริง"
+DISCLAIMER = "หมายเหตุ: ข้อมูลนี้ใช้เพื่อการศึกษา ขั้นตอนจริงอาจต่างกันตามรุ่นเครื่องและรุ่นระบบ"
 
 EVAL_K_VALUES = [1, 3, 5, 10]
 GOLDEN_SET_SIZE = 60

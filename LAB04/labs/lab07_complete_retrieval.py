@@ -18,10 +18,10 @@ from src.retriever import Retriever
 # Questions for testing the retrieval system 
 # (covering multiple categories in the data) 
 SAMPLE_QUERIES = [
-    "ต่อจอ OLED กับ ESP32 ใช้ขาไหน",
-    "ESP32-C5 กับ ESP32-C6 ต่างกันยังไง",
-    "ไวไฟต่อไม่ติดควรตรวจอะไรบ้าง",
-    "Brownout detector was triggered แปลว่าอะไร",
+    "แบตมือถือหมดเร็วผิดปกติ เกิดจากอะไร",
+    "ไวไฟบ้านช้าควรตรวจอะไรก่อน",
+    "โดนหลอกโอนเงินไปแล้วทำอะไรได้บ้าง",
+    "อัพเดทแล้วเครื่องช้าลง แก้ยังไง",
 ]
 
 def main():

@@ -1,13 +1,13 @@
 {
   "file": {
-    "size": 180254,
-    "sha256": "d3fc75c4622c081c955d0e2c6e87d423ad21e53ccb8e6e06eac4ed158368316a"
+    "size": 171889,
+    "sha256": "6854745b6e750948cb28ea46acb992bef1967af391bb03cf76ac56bca75518e4"
   },
   "settings": {
     "CHUNK_SIZE": 400,
     "CHUNK_OVERLAP": 50,
     "EMBEDDING_MODEL_NAME": "BAAI/bge-m3"
   },
-  "n_chunks": 199,
-  "source_file": "iot_qa.txt"
+  "n_chunks": 172,
+  "source_file": "daily_tech_qa.txt"
 }

@@ -40,7 +40,7 @@ def main():
     index_meta.warn_if_stale()
 
     print("--" * 30)
-    print("IoT / Embedded Question Answering System")
+    print("Everyday Phone & Computer Help System")
     print("--" * 30)
 
     rag = RAGPipeline()
