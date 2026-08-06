@@ -165,14 +165,18 @@ Across all variants, hybrid + rerank reaches hit@1 0.9828, hit@10 0.9957, MRR 0.
 nDCG@3 0.9855.
 
 Averages alone say little at this sample size, so the number of questions whose result
-actually flips was counted alongside them. Comparing dense against hybrid, dense answers
-14 questions correctly that hybrid gets wrong, while hybrid wins only 1 (McNemar p ≈ 0.0009).
-Comparing hybrid against hybrid + rerank, the reranker recovers 18 questions and loses none
-(p < 0.001). Dense against hybrid + rerank differs by 5 questions (p ≈ 0.063).
+actually flips was counted alongside them.
+
+| Comparison | left only | right only | net | McNemar |
+|---|---|---|---|---|
+| dense vs hybrid | 14 | 1 | −13 | p ≈ 0.0009 |
+| hybrid vs hybrid + rerank | 0 | 18 | +18 | p < 0.001 |
+| dense vs hybrid + rerank | 0 | 5 | +5 | p ≈ 0.063 |
 
 The first two are statistically supported: fusing BM25 genuinely hurts on this corpus,
 and cross-encoder reranking genuinely helps, most of all when the fusion has damaged the
-ranking.
+ranking. The third does not reach significance, so the combined effect of both stages
+should be read as a trend rather than a result.
 
 ### Why BM25 is weak here
 
@@ -318,11 +322,18 @@ strategy cannot move any number, so it was not implemented, and the reason recor
 ## Changes to the template
 
 `src/thai_text.py` is new. It centralises text preparation so that indexing and querying
-always follow the same path. It fixes transliterated terms being shredded — `เอสเอสดี`
-became three fragments and `พาวเวอร์แบงก์` two — Thai text that looks identical but differs
-byte for byte (`เเปลก` against `แปลก`), Thai numerals being split, and hyphenated names such
-as `Wi-Fi` becoming `wi` and `fi`. Measurement showed `newmm` mis-segmenting 9 of 40 domain
-terms, which is why a domain dictionary was added.
+always follow the same path.
+
+| Problem | Before | After |
+|---|---|---|
+| transliterations shredded | `เอสเอสดี` → `['เอส','เอ','สดี']` | `['เอสเอสดี']` |
+| | `พาวเวอร์แบงก์` → `['พาวเวอร์','แบงก์']` | `['พาวเวอร์แบงก์']` |
+| identical text, different bytes | `เเปลก` ≠ `แปลก` | normalised before anything else |
+| Thai numerals | `๓.๓` → `['๓','๓']` | `['3.3']` |
+| hyphenated names | `Wi-Fi` → `['wi','fi']` | `['wifi','wi','fi']` |
+
+Measurement showed `newmm` mis-segmenting 9 of 40 domain terms, which is why a domain
+dictionary was added.
 
 One caveat for anyone doing the same: `dict_trie()` replaces the main dictionary rather than
 extending it. It must be given `set(thai_words()) | set(DOMAIN_WORDS)`, or the tokenizer
