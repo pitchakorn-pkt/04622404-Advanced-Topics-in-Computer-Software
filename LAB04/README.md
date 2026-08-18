@@ -78,7 +78,10 @@ LAB04/
 ├── config.py                               # project configuration
 ├── build_index.py                          # build all indexes
 ├── requirements.txt                        # dependencies (added)
-└── main.py                                 # run the system
+├── main.py                                 # run the system
+├── serve.py                                # local web demo, standard library only (added)
+└── web/
+    └── index.html                          # the demo's single page (added)
 ```
 
 ## The knowledge base
@@ -112,6 +115,7 @@ versus resetting the device.
 pip install -r requirements.txt
 python build_index.py       # builds FAISS + BM25; first run downloads about 2.2 GB
 python main.py              # interactive question answering
+python serve.py             # the same pipeline as a web page on 127.0.0.1:8000
 ```
 
 Reranking is on by default, so `main.py` downloads a further 2.2 GB on first use.
@@ -125,6 +129,48 @@ set, `evaluation.eval_retrieval` compares retrieval configurations,
 `evaluation.eval_generation` scores answer quality. The last two need a key.
 `evaluation.metrics` also carries a self-test of the metric formulas against
 hand-computed values.
+
+## The web demo
+
+`serve.py` puts the pipeline `main.py` runs behind a single page, to make the retrieval
+stages visible rather than to add capability. Every answer lists the chunks behind it with
+the score each stage gave them, the configuration can be switched between dense, hybrid,
+and hybrid + rerank between questions, and the order the fusion produced is shown beside
+the order the cross-encoder returned, so it is clear which chunk the reranking moved.
+
+Nothing under `src/` was changed for it. `config.USE_HYBRID` is read inside `retrieve()`
+rather than at import, and reranking depends on whether the retriever holds a reranker, so
+both can be set for one request and restored afterwards. The page uses the standard
+library only and adds no dependency.
+
+### Refusing what the corpus cannot answer
+
+The retriever returns `TOP_K` chunks for every query, related or not, and rule 2 of the
+system prompt asks the model to refuse when the context is insufficient. It almost never
+does. Asked whether it would rain today, the system answered with the entry about a phone
+dropped in water and reported no refusal.
+
+The demo therefore checks the corpus before answering. It measures the cosine of the
+nearest chunk, and below 0.50 treats the question as outside the corpus: the answer becomes
+the refusal message, and a separately labelled block carries a general answer from the LLM
+that cites nothing.
+
+The threshold was measured against the 60 hand-written test questions and 20 out-of-corpus
+questions written for the purpose.
+
+| gate | real questions refused wrongly | out-of-corpus questions caught |
+|---|---|---|
+| dense cosine below 0.50 | 0 / 60 | 13 / 20 |
+| best threshold on the rerank score | 4 / 60 | 15 / 20 |
+
+Real questions bottom out at 0.5071 with a median of 0.6469, which is what leaves room
+beneath 0.50. The cross-encoder score cannot be used this way. It ranks rather than
+calibrates: it scored a bare plea for help at 0.8161 and the word "hello" at 0.7271, while
+giving genuine questions as little as 0.0012.
+
+Seven out-of-corpus questions still pass the gate. Two of them are in domain but too broad
+for any single entry to answer, and those should ask the user for detail rather than be
+refused at all, which the demo does not do.
 
 ## The evaluation set had to be repaired first
 
@@ -271,6 +317,11 @@ answer carried an inline citation, none refused, and the average was 3.17 second
 question. Word overlap with the reference passages was 0.79, and with the reference answer
 0.60.
 
+Groq has since retired that model, and `config.LLM_MODEL` now names
+`openai/gpt-oss-120b`. The numbers in this section were not measured again and still
+describe the earlier model. Every retrieval number in this report is unaffected, because
+`eval_retrieval` never calls an LLM.
+
 Those last two need care. They are token-overlap ratios, not correctness judgements: an
 answer rephrased in different words scores low while being entirely right. They indicate
 whether an answer stays close to the source or drifts, and nothing more. The template
@@ -367,6 +418,12 @@ which turned out to decide the outcome on this corpus; and
 `evaluation/eval_query_transform.py`, since nothing previously measured that stage.
 
 ## Limitations
+
+The system does not refuse. The measurement above records that none of the 20 answers
+refused, which read as coverage at the time; it is more accurately the absence of a
+refusal path, since the retriever hands over its top three whether or not they are
+related. `serve.py` gates on distance to the corpus, but `main.py` still answers every
+question from whatever comes back.
 
 The test set has 60 questions. Only the two conclusions marked as significant should be
 read as established; other differences should not be interpreted as meaningful. The best

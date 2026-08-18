@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ระบบตอบปัญหามือถือและคอมพิวเตอร์</title>
+<style>
+  :root {
+    --bg:        #08060a;
+    --panel:     #131017;
+    --card:      #1a161f;
+    --line:      rgba(255,255,255,.07);
+    --line-soft: rgba(255,255,255,.04);
+    --text:      #f3eff5;
+    --muted:     #8d848f;
+    --dim:       #6b636e;
+    --pink:      #e9b8dd;
+    --grad:      linear-gradient(135deg, #f2cbe8 0%, #c983bd 55%, #9d5f96 100%);
+    --radius:    22px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Sukhumvit Set", "Noto Sans Thai", "Thonburi", -apple-system,
+                 BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+    overflow: hidden;
+  }
+
+  /* แสงเรืองสีชมพูที่พื้นหลัง */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(680px 420px at 78% -8%,  rgba(201,131,189,.22), transparent 70%),
+      radial-gradient(520px 380px at 8% 105%,  rgba(157,95,150,.16),  transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* กลุ่มจุดสามมิติที่พื้นหลัง — 1 จุด = 1 chunk ในคลัง */
+  #space {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    opacity: .62;
+    pointer-events: none;
+  }
+
+  .shell {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 22px 22px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* ---------- หัวหน้าจอ ---------- */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.015));
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px 22px;
+    backdrop-filter: blur(6px);
+  }
+
+  .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+
+  .mark {
+    width: 42px; height: 42px;
+    flex: none;
+    border-radius: 14px;
+    background: var(--grad);
+    box-shadow: 0 6px 22px rgba(201,131,189,.35);
+    display: grid;
+    place-items: center;
+    color: #2a1226;
+    font-size: 20px;
+  }
+
+  h1 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: .2px; }
+  h1 span { color: var(--pink); }
+  .sub { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
+
+  .meta { display: flex; flex-wrap: wrap; gap: 7px; justify-content: flex-end; }
+
+  .chip {
+    font-size: 11.5px;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    background: rgba(255,255,255,.03);
+    border-radius: 999px;
+    padding: 5px 12px;
+    white-space: nowrap;
+  }
+  .chip b { color: #cfc6d1; font-weight: 500; }
+
+  .ghost-btn {
+    font: inherit;
+    font-size: 12.5px;
+    color: var(--muted);
+    background: rgba(255,255,255,.03);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 7px 15px;
+    cursor: pointer;
+    transition: .18s;
+  }
+  .ghost-btn:hover { color: var(--text); border-color: rgba(233,184,221,.4); }
+
+  /* ---------- พื้นที่สนทนา ---------- */
+  .thread {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 4px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,.12) transparent;
+  }
+  .thread::-webkit-scrollbar { width: 8px; }
+  .thread::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,.1);
+    border-radius: 99px;
+  }
+
+  /* หน้าจอตอนยังไม่มีคำถาม */
+  .welcome {
+    margin: auto;
+    text-align: center;
+    max-width: 560px;
+    padding: 20px;
+  }
+  .welcome h2 {
+    margin: 0 0 8px;
+    font-size: 26px;
+    font-weight: 600;
+    background: var(--grad);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .welcome p { margin: 0 0 22px; color: var(--muted); font-size: 13.5px; }
+
+  .seeds { display: flex; flex-wrap: wrap; gap: 9px; justify-content: center; }
+  .seed {
+    font: inherit;
+    font-size: 13px;
+    color: #ddd3de;
+    background: rgba(255,255,255,.035);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 9px 16px;
+    cursor: pointer;
+    transition: .18s;
+  }
+  .seed:hover {
+    border-color: rgba(233,184,221,.45);
+    background: rgba(233,184,221,.09);
+    transform: translateY(-1px);
+  }
+
+  .turn { display: flex; flex-direction: column; gap: 10px; }
+
+  .bubble-user {
+    align-self: flex-end;
+    max-width: 76%;
+    background: linear-gradient(135deg, rgba(242,203,232,.16), rgba(157,95,150,.14));
+    border: 1px solid rgba(233,184,221,.22);
+    border-radius: 20px 20px 6px 20px;
+    padding: 11px 18px;
+  }
+
+  .bubble-bot {
+    align-self: flex-start;
+    max-width: 88%;
+    background: rgba(26,22,31,.82);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--line);
+    border-radius: 20px 20px 20px 6px;
+    padding: 18px 20px;
+  }
+  .bubble-bot p { margin: 0 0 10px; }
+  .bubble-bot p:last-child { margin-bottom: 0; }
+  .bubble-bot .note { color: var(--dim); font-size: 12.5px; font-style: italic; }
+  .bubble-bot.error { border-color: rgba(226,120,120,.35); color: #e9a3a3; }
+
+  /* ตัวเลขเวลาแต่ละขั้น */
+  .timings {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 14px;
+    padding-top: 13px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .t {
+    font-size: 11px;
+    color: var(--dim);
+    background: rgba(255,255,255,.03);
+    border-radius: 999px;
+    padding: 3px 10px;
+  }
+  .t b { color: var(--pink); font-weight: 500; }
+
+  /* แหล่งอ้างอิง */
+  details.sources { margin-top: 12px; }
+  details.sources summary {
+    cursor: pointer;
+    list-style: none;
+    font-size: 12.5px;
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 13px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    transition: .18s;
+  }
+  details.sources summary::-webkit-details-marker { display: none; }
+  details.sources summary:hover { color: var(--text); border-color: rgba(233,184,221,.4); }
+  details.sources[open] summary { color: var(--pink); border-color: rgba(233,184,221,.35); }
+
+  .src {
+    margin-top: 10px;
+    background: rgba(255,255,255,.022);
+    border: 1px solid var(--line-soft);
+    border-left: 2px solid rgba(233,184,221,.5);
+    border-radius: 12px;
+    padding: 11px 15px;
+  }
+  .src-head {
+    display: flex;
+    align-items: baseline;
+    gap: 9px;
+    margin-bottom: 5px;
+    font-size: 13px;
+  }
+  .src-n { color: var(--pink); font-weight: 600; }
+  .src-q { color: #ded4df; }
+  .src-body { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+  .src-foot { margin-top: 6px; font-size: 11px; color: var(--dim); }
+
+  /* คำตอบที่ไม่ได้มาจากคลัง — ต้องดูต่างจากคำตอบปกติทันทีที่เห็น */
+  .outside {
+    margin-top: 14px;
+    border: 1px dashed rgba(224,170,110,.45);
+    background: rgba(224,170,110,.06);
+    border-radius: 14px;
+    padding: 13px 16px;
+  }
+  .outside-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11.5px;
+    color: #e0aa6e;
+    margin-bottom: 9px;
+    letter-spacing: .2px;
+  }
+  .outside p { margin: 0 0 8px; color: #ddd0c2; }
+  .outside p:last-child { margin-bottom: 0; }
+  .outside-why { font-size: 11px; color: var(--dim); margin-top: 10px; }
+
+  /* ตารางเทียบอันดับก่อน-หลัง rerank */
+  .shuffle { margin-top: 10px; }
+  .shuffle-head {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 12px 0 8px;
+  }
+  .shuffle-head b { color: var(--pink); font-weight: 600; }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--dim);
+  }
+  .row + .row { margin-top: 2px; }
+  .row.picked {
+    background: rgba(233,184,221,.08);
+    border: 1px solid rgba(233,184,221,.22);
+    color: #ddd3de;
+  }
+  .row-rank { width: 26px; flex: none; text-align: right; color: var(--dim); }
+  .row.picked .row-rank { color: var(--pink); font-weight: 600; }
+  .row-q { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row-score { flex: none; font-size: 11px; color: var(--dim); }
+  .row-moved {
+    flex: none;
+    font-size: 10.5px;
+    color: #2a1226;
+    background: var(--grad);
+    border-radius: 999px;
+    padding: 1px 9px;
+    font-weight: 600;
+  }
+
+  /* จุดวิ่งตอนรอคำตอบ */
+  .dots { display: inline-flex; gap: 5px; padding: 3px 0; }
+  .dots i {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--pink);
+    opacity: .35;
+    animation: blink 1.3s infinite;
+  }
+  .dots i:nth-child(2) { animation-delay: .18s; }
+  .dots i:nth-child(3) { animation-delay: .36s; }
+  @keyframes blink { 0%,100% { opacity:.25; } 45% { opacity:1; } }
+
+  /* ---------- สลับคอนฟิกการค้น ---------- */
+  .modes {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    align-self: center;
+    background: rgba(19,16,23,.72);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 6px 5px 16px;
+  }
+  .modes-label { font-size: 11.5px; color: var(--dim); margin-right: 4px; }
+
+  .mode {
+    font: inherit;
+    font-size: 12.5px;
+    color: var(--muted);
+    background: none;
+    border: none;
+    border-radius: 999px;
+    padding: 6px 15px;
+    cursor: pointer;
+    transition: .18s;
+  }
+  .mode:hover { color: var(--text); }
+  .mode.is-on {
+    background: var(--grad);
+    color: #2a1226;
+    font-weight: 600;
+    box-shadow: 0 3px 14px rgba(201,131,189,.3);
+  }
+
+  /* ป้ายบอกว่าคำตอบนี้มาจากคอนฟิกไหน */
+  .tag {
+    display: inline-block;
+    font-size: 10.5px;
+    letter-spacing: .3px;
+    color: var(--pink);
+    border: 1px solid rgba(233,184,221,.3);
+    border-radius: 999px;
+    padding: 2px 10px;
+    margin-bottom: 10px;
+  }
+
+  /* คะแนนของแต่ละขั้นในการ์ดแหล่งอ้างอิง */
+  .scores { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+  .scores span {
+    font-size: 10.5px;
+    color: var(--dim);
+    background: rgba(255,255,255,.035);
+    border-radius: 999px;
+    padding: 2px 9px;
+  }
+  .scores b { color: #c9bfcb; font-weight: 500; }
+  .scores .zero b { color: #c98a8a; }
+
+  /* ---------- ช่องพิมพ์ ---------- */
+  form {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(19,16,23,.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 8px 8px 8px 22px;
+    transition: .2s;
+  }
+  form:focus-within {
+    border-color: rgba(233,184,221,.45);
+    box-shadow: 0 0 0 4px rgba(201,131,189,.08);
+  }
+
+  input {
+    flex: 1;
+    font: inherit;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text);
+    padding: 10px 0;
+  }
+  input::placeholder { color: var(--dim); }
+
+  .send {
+    flex: none;
+    width: 42px; height: 42px;
+    border: none;
+    border-radius: 50%;
+    background: var(--grad);
+    color: #2a1226;
+    font-size: 17px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: .18s;
+  }
+  .send:hover:not(:disabled) { filter: brightness(1.08); transform: scale(1.05); }
+  .send:disabled { opacity: .35; cursor: default; }
+
+  .foot {
+    text-align: center;
+    font-size: 11px;
+    color: var(--dim);
+    margin: -6px 0 0;
+  }
+
+  @media (max-width: 720px) {
+    .meta { display: none; }
+    .bubble-bot, .bubble-user { max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+<canvas id="space"></canvas>
+<script>
+/* ---------------------------------------------------------------
+   พื้นหลัง: กลุ่มจุดสามมิติหมุนช้า ๆ
+   1 จุด = 1 chunk ในคลัง (chunk_id ตรงกับลำดับจุดพอดี)
+   เวลาถามคำถาม จุดที่ระบบหยิบมาตอบจะเรืองแสง แล้วกลุ่มดาวหมุนพามาอยู่ด้านหน้า
+   ฉายภาพเองด้วยสูตร perspective ธรรมดา ไม่ใช้ไลบรารีนอก
+----------------------------------------------------------------*/
+window.cloud = (() => {
+  const canvas = document.getElementById("space");
+  const ctx    = canvas.getContext("2d");
+  const still  = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const LINKS  = 2;        // ลากเส้นไปหาเพื่อนบ้านที่ใกล้ที่สุดกี่จุด
+  const DRIFT  = 0.00007;  // ความเร็วหมุนปกติ (เรเดียนต่อมิลลิวินาที)
+  const HOLD   = 5000;     // หันหน้าค้างไว้กี่มิลลิวินาที ก่อนกลับไปหมุนเอง
+
+  let width, height, count = 194;
+  let radius = 300, fov = 900;      // คิดใหม่ทุกครั้งที่หน้าต่างเปลี่ยนขนาด
+  let points = [], links = [];
+  let tilt = { x: 0, y: 0 };
+
+  let spin = 0, previous = 0;
+  let target = null, holdUntil = 0;    // มุมที่จะหันไป กับเวลาที่หมดสัญญา
+  let lit = new Set(), main = [];      // จุดที่กำลังเรืองแสง กับชุดหลักไว้กลับมา
+
+  function resize() {
+    const ratio = Math.min(devicePixelRatio || 1, 2);
+    width  = canvas.clientWidth;
+    height = canvas.clientHeight;
+    canvas.width  = width  * ratio;
+    canvas.height = height * ratio;
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+    // ถ้าจอเล็กกว่านี้ก็ย่อทรงกลมตาม จะได้ไม่ล้นออกนอกจอ
+    radius = Math.min(300, Math.min(width, height) * 0.42);
+    fov    = radius * 3;
+  }
+
+  // กระจายจุดให้ห่างกันสม่ำเสมอบนผิวทรงกลมด้วยเกลียวฟีโบนัชชี
+  function build(total) {
+    count  = total;
+    points = [];
+    links  = [];
+
+    const golden = Math.PI * (3 - Math.sqrt(5));
+
+    for (let i = 0; i < count; i++) {
+      const y     = 1 - (i / (count - 1)) * 2;
+      const ring  = Math.sqrt(1 - y * y);
+      const angle = golden * i;
+
+      // ดันจุดเข้า-ออกจากผิวเล็กน้อย ให้ดูเป็นกลุ่มก้อนไม่ใช่เปลือกเกลี้ยง
+      const spread = 0.78 + Math.random() * 0.28;
+
+      points.push({
+        x: Math.cos(angle) * ring * spread,
+        y: y * spread,
+        z: Math.sin(angle) * ring * spread,
+        seed: Math.random() * Math.PI * 2,
+      });
+    }
+
+    // หาคู่เพื่อนบ้านครั้งเดียวตอนสร้าง เพราะจุดไม่ได้ขยับสัมพัทธ์กัน
+    const seen = new Set();
+
+    points.forEach((a, i) => {
+      points
+        .map((b, j) => ({ j, d: (a.x-b.x)**2 + (a.y-b.y)**2 + (a.z-b.z)**2 }))
+        .filter(item => item.j !== i)
+        .sort((one, two) => one.d - two.d)
+        .slice(0, LINKS)
+        .forEach(({ j }) => {
+          const key = i < j ? `${i}-${j}` : `${j}-${i}`;
+          if (!seen.has(key)) { seen.add(key); links.push([i, j]); }
+        });
+    });
+  }
+
+  // หันกลุ่มดาวให้จุดที่ระบุมาอยู่ด้านหน้า
+  // จุดหนึ่งอยู่ที่มุม φ = atan2(x, z) รอบแกน y — หมุนไป π - φ แล้วมันจะมาอยู่ใกล้ตาที่สุด
+  function faceTowards(ids) {
+    const chosen = ids.map(id => points[id]).filter(Boolean);
+    if (!chosen.length) return;
+
+    const x = chosen.reduce((sum, point) => sum + point.x, 0) / chosen.length;
+    const z = chosen.reduce((sum, point) => sum + point.z, 0) / chosen.length;
+
+    let angle = Math.PI - Math.atan2(x, z);
+
+    // เลือกรอบที่ใกล้มุมปัจจุบันที่สุด จะได้หมุนทางสั้น ไม่วนรอบโลก
+    while (angle - spin >  Math.PI) angle -= Math.PI * 2;
+    while (angle - spin < -Math.PI) angle += Math.PI * 2;
+
+    target    = angle;
+    holdUntil = performance.now() + HOLD;
+  }
+
+  function draw(now) {
+    const step = Math.min(now - previous, 50);   // สลับแท็บกลับมาแล้วอย่ากระโดด
+    previous = now;
+
+    if (target !== null) {
+      spin += (target - spin) * 0.07;            // ค่อย ๆ หันเข้าเป้า
+      if (now > holdUntil && Math.abs(target - spin) < 0.01) target = null;
+    } else if (!still) {
+      spin += DRIFT * step;
+    }
+
+    const sinY = Math.sin(spin + tilt.y), cosY = Math.cos(spin + tilt.y);
+    const sinX = Math.sin(tilt.x + 0.35), cosX = Math.cos(tilt.x + 0.35);
+
+    const centerX = width  * 0.5;
+    const centerY = height * 0.5;
+
+    ctx.clearRect(0, 0, width, height);
+
+    const flat = points.map((point, i) => {
+      const pulse = (still ? 1 : 1 + Math.sin(now * 0.0004 + point.seed) * 0.03) * radius;
+
+      const x1 =  point.x * cosY + point.z * sinY;
+      const z1 = -point.x * sinY + point.z * cosY;
+      const y1 =  point.y * cosX - z1 * sinX;
+      const z2 =  point.y * sinX + z1 * cosX;
+
+      const scale = fov / (fov + z2 * pulse);
+
+      return {
+        x: centerX + x1 * pulse * scale,
+        y: centerY + y1 * pulse * scale,
+        depth: (z2 + 1) / 2,                   // 0 = อยู่หน้า, 1 = อยู่หลัง
+        scale,
+        on: lit.has(i),
+      };
+    });
+
+    // เส้นเชื่อมก่อน แล้วค่อยทับด้วยจุด
+    ctx.lineWidth = 0.6;
+    links.forEach(([i, j]) => {
+      const a = flat[i], b = flat[j];
+      const near = 1 - (a.depth + b.depth) / 2;
+      const hot  = a.on || b.on;
+
+      ctx.strokeStyle = hot
+        ? `rgba(242,203,232,${(0.30 * near + 0.12).toFixed(3)})`
+        : `rgba(212,150,199,${(0.16 * near ** 2).toFixed(3)})`;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    });
+
+    // ลากเส้นระหว่างจุดที่ถูกหยิบมาตอบด้วยกัน ให้เห็นว่ามันเป็นชุดเดียวกัน
+    const on = [...lit].map(i => flat[i]).filter(Boolean);
+    if (on.length > 1) {
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "rgba(242,203,232,.28)";
+      ctx.beginPath();
+      on.forEach((point, i) => i ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y));
+      ctx.stroke();
+    }
+
+    flat.forEach(point => {
+      const near = 1 - point.depth;
+
+      if (point.on) {
+        // วงแหวนกระเพื่อมออกจากจุดที่ถูกหยิบมาตอบ
+        const beat = (now % 1800) / 1800;
+
+        ctx.strokeStyle = `rgba(242,203,232,${(0.5 * (1 - beat)).toFixed(3)})`;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, (5 + beat * 26) * point.scale, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle   = "rgba(255,232,248,.98)";
+        ctx.shadowBlur  = 26;
+        ctx.shadowColor = "rgba(242,203,232,.95)";
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 4.2 * point.scale, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        return;
+      }
+
+      const size  = (0.7 + near * 2.1) * point.scale;
+      const alpha = (0.14 + near ** 2 * 0.75) * (lit.size ? 0.45 : 1);   // จุดอื่นหรี่ลงตอนมีตัวเด่น
+
+      ctx.fillStyle   = `rgba(${242 - near * 20 | 0}, ${170 + near * 40 | 0}, ${222 + near * 12 | 0}, ${alpha.toFixed(3)})`;
+      ctx.shadowBlur  = near > 0.72 && !lit.size ? 12 * near : 0;
+      ctx.shadowColor = "rgba(233,184,221,.55)";
+
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, size, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    ctx.shadowBlur = 0;
+    requestAnimationFrame(draw);
+  }
+
+  // ขยับเมาส์แล้วกลุ่มดาวเอียงตามนิดหน่อย
+  addEventListener("pointermove", event => {
+    tilt.y = (event.clientX / innerWidth  - 0.5) * 0.5;
+    tilt.x = (event.clientY / innerHeight - 0.5) * 0.4;
+  });
+
+  addEventListener("resize", resize);
+  resize();
+  build(count);
+  requestAnimationFrame(draw);
+
+  return {
+    // จำนวนจุดต้องเท่าจำนวน chunk จริง อ่านมาจาก /settings
+    resize(total) { if (total && total !== count) build(total); },
+
+    // จุดที่ระบบหยิบมาตอบ — เรืองแสงค้างไว้จนกว่าจะถามใหม่
+    spotlight(ids) { main = ids; lit = new Set(ids); faceTowards(ids); },
+
+    // ชี้ที่รายการแหล่งอ้างอิงแล้วซูมไปดูจุดนั้นตัวเดียว
+    peek(id)  { lit = new Set([id]); faceTowards([id]); },
+    unpeek()  { lit = new Set(main); faceTowards(main); },
+
+    clear()   { main = []; lit = new Set(); target = null; },
+  };
+})();
+</script>
+<div class="shell">
+
+  <header>
+    <div class="brand">
+      <div class="mark">◈</div>
+      <div>
+        <h1>ระบบตอบปัญหา<span>มือถือและคอมพิวเตอร์</span></h1>
+        <p class="sub">RAG ภาษาไทย · ค้นจากคลังถาม-ตอบที่เขียนเอง แล้วให้ LLM เรียบเรียง</p>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="meta" id="meta"></div>
+      <button class="ghost-btn" id="reset" title="ล้างประวัติการสนทนา">ล้างบทสนทนา</button>
+    </div>
+  </header>
+
+  <div class="thread" id="thread">
+    <div class="welcome" id="welcome">
+      <h2>ถามอะไรก็ได้เกี่ยวกับเครื่องของคุณ</h2>
+      <p>ทุกคำตอบมาจากคลังความรู้ 194 คู่ถาม-ตอบ และอ้างอิงกลับไปที่บรรทัดในไฟล์ต้นฉบับได้</p>
+      <div class="seeds">
+        <button class="seed">ชาร์จทิ้งไว้ข้ามคืนแบตเสื่อมไหม</button>
+        <button class="seed">พัดลมโน้ตบุ๊กดังตลอดเวลาผิดปกติไหม</button>
+        <button class="seed">มือถือตกน้ำต้องทำอะไรก่อน</button>
+        <button class="seed">คอมช้าลงเรื่อย ๆ แก้ยังไงดี</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modes" id="modes">
+    <span class="modes-label">โหมดค้น</span>
+    <button class="mode" data-mode="dense"  title="dense อย่างเดียว — วัดได้ MRR 0.8961">dense</button>
+    <button class="mode" data-mode="hybrid" title="ผสม BM25 ด้วย RRF — วัดได้ MRR 0.7219">+ BM25</button>
+    <button class="mode is-on" data-mode="full" title="ผสมแล้ว rerank ด้วย cross-encoder — วัดได้ MRR 0.9482">+ rerank</button>
+  </div>
+
+  <form id="form">
+    <input id="q" autocomplete="off" placeholder="พิมพ์คำถามที่นี่ ..." autofocus>
+    <button class="send" id="send" type="submit" title="ส่ง">↑</button>
+  </form>
+  <p class="foot">ข้อมูลใช้เพื่อการศึกษา · LAB04 · 04622404 Advanced Topics in Computer Software</p>
+
+</div>
+
+<script>
+const thread  = document.getElementById("thread");
+const welcome = document.getElementById("welcome");
+const welcomeHTML = welcome.outerHTML;
+const form    = document.getElementById("form");
+const input   = document.getElementById("q");
+const send    = document.getElementById("send");
+
+// แสดงค่าที่ระบบใช้อยู่จริงบนหัวจอ (อ่านจาก config.py ผ่าน /settings)
+fetch("/settings").then(r => r.json()).then(s => {
+  cloud.resize(s.chunks);
+  document.getElementById("meta").innerHTML = [
+    ["embedding", s.embedding.split("/").pop()],
+    ["rerank",    s.rerank ? s.rerank.split("/").pop() : "ปิด"],
+    ["น้ำหนัก",   s.weights],
+    ["LLM",       s.llm],
+  ].map(([k, v]) => `<span class="chip">${k} <b>${v}</b></span>`).join("");
+});
+
+const MODE_NAMES = { dense: "dense อย่างเดียว", hybrid: "hybrid (dense + BM25)", full: "hybrid + rerank" };
+let mode = "full";
+
+document.getElementById("modes").addEventListener("click", event => {
+  const button = event.target.closest(".mode");
+  if (!button) return;
+
+  mode = button.dataset.mode;
+  document.querySelectorAll(".mode").forEach(item => item.classList.toggle("is-on", item === button));
+  input.focus();
+});
+
+const escape = text => text.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+function addTurn() {
+  thread.querySelector(".welcome")?.remove();
+  const turn = document.createElement("div");
+  turn.className = "turn";
+  thread.appendChild(turn);
+  return turn;
+}
+
+function scrollDown() {
+  thread.scrollTo({ top: thread.scrollHeight, behavior: "smooth" });
+}
+
+// คำตอบมี disclaimer ต่อท้ายเสมอ แยกออกมาให้จางลง
+function renderAnswer(text) {
+  return text.split("\n").filter(line => line.trim()).map(line =>
+    `<p class="${line.startsWith("หมายเหตุ") ? "note" : ""}">${escape(line)}</p>`
+  ).join("");
+}
+
+function renderSources(sources) {
+  if (!sources.length) return "";
+
+  const items = sources.map(s => `
+    <div class="src" data-chunk="${s.chunk_id}">
+      <div class="src-head">
+        <span class="src-n">[${s.n}]</span>
+        <span class="src-q">${escape(s.question)}</span>
+      </div>
+      <div class="src-body">${escape(s.answer)}</div>
+      <div class="src-foot">บรรทัด ${s.line_no} ในไฟล์ต้นฉบับ${s.rank_before ? ` · ก่อน rerank อยู่อันดับ ${s.rank_before}` : ""}</div>
+      <div class="scores">${renderScores(s)}</div>
+    </div>`).join("");
+
+  return `<details class="sources">
+            <summary>◆ แหล่งอ้างอิง ${sources.length} รายการ</summary>${items}
+          </details>`;
+}
+
+// คะแนนของแต่ละขั้น — ค่าที่ค้นไม่เจอเป็น null ไม่ใช่ 0 จึงแยกแสดง
+function renderScores(source) {
+  const chips = [];
+  const show = (name, value, klass = "") =>
+    chips.push(`<span class="${klass}">${name} <b>${value}</b></span>`);
+
+  show("dense", source.dense === null || source.dense === undefined ? "—" : source.dense.toFixed(4));
+  show("BM25",  source.bm25  === null || source.bm25  === undefined ? "ไม่เจอ" : source.bm25.toFixed(4),
+       source.bm25 ? "" : "zero");
+
+  if (source.rrf === null || source.rrf === undefined) {
+    show("RRF", source.score);
+  } else {
+    show("RRF", source.rrf.toFixed(4));
+    show("rerank", source.score);
+  }
+
+  return chips.join("");
+}
+
+// rerank ทำอะไรกับอันดับบ้าง — เทียบผู้เข้ารอบจาก RRF กับ 3 ตัวที่เหลือรอด
+function renderShuffle(data) {
+  if (!data.before.length) return "";
+
+  const picked = new Map(data.sources.map(source => [source.chunk_id, source.n]));
+  const top    = data.sources.find(source => source.n === 1);
+  const climb  = top && top.rank_before ? top.rank_before : null;
+
+  const rows = data.before.map(row => {
+    const place = picked.get(row.chunk_id);
+    return `
+      <div class="row ${place ? "picked" : ""}">
+        <span class="row-rank">#${row.rank}</span>
+        <span class="row-q">${escape(row.question)}</span>
+        <span class="row-score">RRF ${row.score}</span>
+        ${place ? `<span class="row-moved">→ [${place}]</span>` : ""}
+      </div>`;
+  }).join("");
+
+  const headline = climb === 1
+    ? "cross-encoder เห็นด้วยกับ RRF ว่าอันดับ 1 คือตัวเดิม"
+    : `cross-encoder ดึง <b>อันดับ ${climb}</b> ขึ้นมาเป็น <b>ที่ 1</b>`;
+
+  return `<details class="sources shuffle">
+            <summary>◆ rerank สลับอันดับอะไรบ้าง (ผู้เข้ารอบ ${data.before.length} ตัว)</summary>
+            <p class="shuffle-head">${headline}</p>${rows}
+          </details>`;
+}
+
+// คำถามที่คลังไม่มี — LLM ตอบจากความรู้ตัวเอง ต้องแยกให้เห็นชัดว่าไม่มีแหล่งอ้างอิง
+function renderOutside(data) {
+  if (!data.outside) return "";
+
+  const body = data.outside.split("\n").filter(line => line.trim())
+    .map(line => `<p>${escape(line)}</p>`).join("");
+
+  return `<div class="outside">
+            <div class="outside-head">⚠ ไม่ได้มาจากคลังความรู้ · ความรู้ทั่วไปของโมเดล · ไม่มีแหล่งอ้างอิงให้ตรวจย้อน</div>
+            ${body}
+            <div class="outside-why">คลังที่ใกล้ที่สุดได้คะแนนความใกล้เคียง ${data.relevance} ซึ่งต่ำกว่าเกณฑ์ 0.50 จึงถือว่าไม่มีเรื่องนี้ในคลัง</div>
+          </div>`;
+}
+
+function renderTimings(timings) {
+  const chips = Object.entries(timings)
+    .map(([name, seconds]) => `<span class="t">${name} <b>${seconds}s</b></span>`).join("");
+  return `<div class="timings">${chips}</div>`;
+}
+
+async function ask(question) {
+  const turn = addTurn();
+  turn.innerHTML = `<div class="bubble-user">${escape(question)}</div>
+                    <div class="bubble-bot"><span class="dots"><i></i><i></i><i></i></span></div>`;
+  scrollDown();
+
+  const bot = turn.querySelector(".bubble-bot");
+  input.value = "";
+  send.disabled = true;
+
+  try {
+    const response = await fetch("/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, mode }),
+    });
+    const data = await response.json();
+
+    if (data.error) {
+      bot.classList.add("error");
+      bot.textContent = "เรียกระบบไม่สำเร็จ: " + data.error;
+    } else {
+      bot.innerHTML = `<span class="tag">${MODE_NAMES[data.mode]}</span>`
+                    + renderAnswer(data.answer) + renderOutside(data) + renderSources(data.sources)
+                    + renderShuffle(data) + renderTimings(data.timings);
+      data.sources.length ? cloud.spotlight(data.sources.map(source => source.chunk_id)) : cloud.clear();
+    }
+  } catch (error) {
+    bot.classList.add("error");
+    bot.textContent = "ติดต่อเซิร์ฟเวอร์ไม่ได้ — เซิร์ฟเวอร์ยังรันอยู่หรือเปล่า";
+  }
+
+  send.disabled = false;
+  input.focus();
+  scrollDown();
+}
+
+form.addEventListener("submit", event => {
+  event.preventDefault();
+  const question = input.value.trim();
+  if (question) ask(question);
+});
+
+thread.addEventListener("click", event => {
+  const seed = event.target.closest(".seed");
+  if (seed) ask(seed.textContent);
+});
+
+thread.addEventListener("mouseover", event => {
+  const card = event.target.closest(".src");
+  if (card) cloud.peek(Number(card.dataset.chunk));
+});
+
+thread.addEventListener("mouseout", event => {
+  if (event.target.closest(".src")) cloud.unpeek();
+});
+
+document.getElementById("reset").addEventListener("click", async () => {
+  await fetch("/reset", { method: "POST" });
+  thread.innerHTML = welcomeHTML;
+  cloud.clear();
+  input.focus();
+});
+</script>
+
+</body>
+</html>
