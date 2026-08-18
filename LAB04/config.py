@@ -101,7 +101,7 @@ MULTI_QUERY_COUNT = 3
 
 # 5. LLM
 LLM_PROVIDER = "groq"
-LLM_MODEL = ""          # เว้นว่าง = ใช้ค่า default
+LLM_MODEL = "openai/gpt-oss-120b"   # Groq ถอด llama-3.3-70b-versatile ออกแล้ว (พบ 2026-08-18)
 LLM_TEMPERATURE = 0.2   # เหมือนค่าเทรดโฮล
 LLM_MAX_TOKENS = 800
 
