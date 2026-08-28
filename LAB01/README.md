@@ -56,6 +56,20 @@ and this repository speaks HTTP through `urllib` alone; the fix was to send a
 real `User-Agent`. And `post_with_retry` used to discard the response body, so
 every failure looked the same from the outside — it logs the body now.
 
+## Problems and fixes
+
+Six problems found in this pipeline are written up in
+[`problems/`](problems/) — what happens, why, how to check for it, and either
+the fix applied or the reason none was. Each has a script that reproduces it
+from the committed stage outputs:
+
+```bash
+cd problems && python main.py 0     # all six
+```
+
+Four of the six produce no error message at all, which is what makes a pipeline
+of gracefully-degrading stages hard to debug.
+
 ## What the cleaning rule trades away
 
 Boilerplate removal drops any line that appears in five or more documents, on the

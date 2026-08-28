@@ -31,6 +31,8 @@ LAB02/
 │   ├── embeddings.npy                      # (90, 384) float32
 │   └── retrieval_results.json              # top-3 results for lab07's four queries
 │
+├── problems/                              # six problems found in this system, with runnable reproductions
+│
 ├── vector_db/
 │   ├── document.index                      # FAISS IndexFlatIP
 │   └── chunk_store.json                    # chunks and metadata, aligned to the index
@@ -175,6 +177,21 @@ this one is shown as a miss rather than as a near miss.
 - Everything else in `src/`, `labs/` and `main.py` is the template's, including the
   settings: `CHUNK_SIZE` 400, `CHUNK_OVERLAP` 50, `TOP_K` 3, and
   `paraphrase-multilingual-MiniLM-L12-v2` as the embedding model.
+
+## Problems and fixes
+
+Six problems found in this system are written up in [`problems/`](problems/) —
+what happens, why, how to check for it, and what a fix would cost. Each has a
+script that reproduces it:
+
+```bash
+cd problems && python main.py 0     # all six
+```
+
+Five of the six are things that are present but unused, or configured but inert:
+the chunk-size setting has no effect, the menu name is never read, `TOP_K` is
+overridden, the score that could refuse is never compared to anything, and the
+ten test questions are opened by no script.
 
 ## Limitations
 

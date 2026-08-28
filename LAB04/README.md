@@ -37,6 +37,8 @@ LAB04/
 │   ├── eval_query_transform.json           # scores for the query-preparation stage
 │   └── eval_generation.json                # answer quality scores
 │
+├── problems/                               # nine problems found in this system, with runnable reproductions
+│
 ├── vector_db/
 │   ├── document.index                      # FAISS index, dense semantic search
 │   ├── bm25_index.pkl                      # BM25 index, exact-token search
@@ -416,6 +418,21 @@ Also added: `groq` in `LLM_PROVIDERS` with a clear message when the key is missi
 `requirements.txt`, which the template lacked; the RRF weighting parameters in `config.py`,
 which turned out to decide the outcome on this corpus; and
 `evaluation/eval_query_transform.py`, since nothing previously measured that stage.
+
+## Problems and fixes
+
+Nine problems found in this system, one per pipeline stage, are written up in
+[`problems/`](problems/) — what happens, why, how to check for it, and either the
+fix applied or the reason none was. Each has a script that reproduces it from the
+artefacts committed here, with no model download and no API key:
+
+```bash
+cd problems && python main.py 0     # all nine, about half a second
+```
+
+Six of the nine produce no error message at all. That is the finding worth
+carrying forward: in a RAG pipeline every stage has a sensible fallback, so the
+dangerous failures are the quiet ones.
 
 ## Limitations
 
