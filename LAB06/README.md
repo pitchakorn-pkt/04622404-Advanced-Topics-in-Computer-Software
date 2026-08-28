@@ -1,9 +1,5 @@
 # LAB06
 
-_Not started yet._
+_No lab was assigned for this slot._
 
-| File | |
-|---|---|
-| source code | `.ipynb` or `.py` |
-| dataset | if the lab uses one, with the source it came from |
-| `report.pdf` | if the lab asks for one |
+The folder is kept so the numbering stays aligned with `LAB01` through `LAB10`.
