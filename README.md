@@ -25,7 +25,9 @@ Each lab lives in its own folder, `LAB01` through `LAB10`, with the final projec
 | LAB02 | RAG retrieval system over a Thai food Q&A dataset, built step by step from loading to FAISS search — see [`LAB02/README.md`](LAB02/README.md) | [`LAB02/`](LAB02/) |
 | LAB03 | no lab assigned — break in the course schedule | [`LAB03/`](LAB03/) |
 | LAB04 | Full RAG system over a Thai Q&A corpus on everyday phone and computer problems, with hybrid retrieval, reranking, and a measured comparison of Thai-language retrieval settings — see [`LAB04/README.md`](LAB04/README.md) | [`LAB04/`](LAB04/) |
-| LAB05 – LAB10 | not started yet | [`LAB05/`](LAB05/) … [`LAB10/`](LAB10/) |
+| LAB05 | no lab assigned — the class fell on a holiday | [`LAB05/`](LAB05/) |
+| LAB06 | no lab assigned | [`LAB06/`](LAB06/) |
+| LAB07 – LAB10 | not started yet | [`LAB07/`](LAB07/) … [`LAB10/`](LAB10/) |
 | Final Project | not started yet | [`Final-Project/`](Final-Project/) |
 
 Each finished lab has its own README covering the same four things: what was changed
