@@ -38,3 +38,9 @@ results section grows only where there are numbers to put in it.
 A lab that is my own write-up also has a Thai version, `README.th.md`, linked from the
 first line of each; the two carry the same content and the same figures. Each lab folder
 installs from its own `requirements.txt` and is meant to be run from inside that folder.
+
+`LAB01`, `LAB02` and `LAB04` each also carry a `problems/` folder: the problems found in
+that system, one per stage of its pipeline, with the cause, how to check for it, and either
+the fix applied or the reason none was. Each problem has a script that reproduces it from
+the artefacts already committed — `cd LAB0x/problems && python main.py 0` runs them all.
+Twenty-one problems in total, and most of them produce no error message at all.
