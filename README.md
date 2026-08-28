@@ -26,7 +26,7 @@ Each lab lives in its own folder, `LAB01` through `LAB10`, with the final projec
 | LAB03 | no lab assigned — break in the course schedule | [`LAB03/`](LAB03/) |
 | LAB04 | Full RAG system over a Thai Q&A corpus on everyday phone and computer problems, with hybrid retrieval, reranking, and a measured comparison of Thai-language retrieval settings — see [`LAB04/README.md`](LAB04/README.md) | [`LAB04/`](LAB04/) |
 | LAB05 | no lab assigned — the class fell on a holiday | [`LAB05/`](LAB05/) |
-| LAB06 | no lab assigned | [`LAB06/`](LAB06/) |
+| LAB06 | Oral check on understanding: presented the RAG workflow of my LAB04 system 1:1 with the instructor, mapping every step of the flow to the file and function behind it — see [`LAB06/README.md`](LAB06/README.md) | [`LAB06/`](LAB06/) |
 | LAB07 – LAB10 | not started yet | [`LAB07/`](LAB07/) … [`LAB10/`](LAB10/) |
 | Final Project | not started yet | [`Final-Project/`](Final-Project/) |
 
