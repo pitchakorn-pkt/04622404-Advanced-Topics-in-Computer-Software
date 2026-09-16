@@ -27,9 +27,11 @@ git config --global user.email
 **0.2 โหลด repo ของทีมลงเครื่อง** (ทำที่โฟลเดอร์ที่คุณอยากเก็บงาน)
 
 ```bash
-git clone https://github.com/<owner>/<team-repo>.git
-cd <team-repo>
+git clone https://github.com/pitchakorn-pkt/chuayduay.git
+cd chuayduay
 ```
+
+clone มาจะได้ `main` ซึ่งเป็นเวอร์ชันสำหรับนำเสนอ **ไม่ใช่ที่ที่คุณทำงาน** ข้อ 0.3 จะพาไป branch ของคุณ
 
 ถ้าถามรหัสผ่านแล้วใส่ไม่ผ่าน → GitHub ไม่รับรหัสผ่านแล้ว ให้ทำอย่างใดอย่างหนึ่ง
 - ติดตั้ง **GitHub CLI** แล้วสั่ง `gh auth login` (ง่ายที่สุด)
@@ -138,6 +140,9 @@ git diff --stat origin/develop                   # ดูว่าแก้อ�
    base: develop  ←  compare: feature/03-router-yourname
    ```
    **`base` ต้องเป็น `develop` ห้ามเป็น `main`** ถ้าเลือกผิดกด dropdown เปลี่ยน
+   > `main` เป็น default branch ของ repo **ปุ่มจะเด้ง `base: main` มาให้เสมอ ต้องเปลี่ยนเองทุกครั้ง**
+   > ถ้าลืม GitHub จะไม่ยอมให้ merge อยู่ดี (main ต้อง approve 2 คน) แต่จะเสียเวลาเปิดใหม่
+   > คำเตือนนี้ขึ้นอยู่หัวช่องคำอธิบาย PR ด้วย อ่านแล้วค่อยกด create
 4. ตั้งชื่อ PR แบบเดียวกับ commit เช่น `feat(03-router): cascade routing ชั้น rules`
 5. ในช่องคำอธิบาย เขียน 3 อย่าง: ทำอะไรไป / ทดสอบยังไง / มี library ใหม่ไหม
 6. กด **Create pull request**
