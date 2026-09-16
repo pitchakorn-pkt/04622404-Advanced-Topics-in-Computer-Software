@@ -3,6 +3,7 @@
 # ต้องมีใน repo (ตั้งไว้แล้ว):
 #   Secret    DISCORD_WEBHOOK_PR    webhook ของ #pull-requests
 #   Variable  DISCORD_CHANNEL_IDS   JSON map ชื่อห้องโมดูล -> channel id (ใช้ทำลิงก์กดได้)
+#   Variable  DISCORD_ROLE_IDS      JSON map ชื่อห้องโมดูล -> role id (ใช้ ping เจ้าของงาน)
 #
 # จับโมดูลจากชื่อ branch รูปแบบ  feature/<เลข>-<โมดูล>-<github-username>
 #   feature/05-retrieval-somchai  ->  05-retrieval
@@ -23,6 +24,7 @@ jobs:
         env:
           WEBHOOK_URL:  ${{ secrets.DISCORD_WEBHOOK_PR }}
           CHANNEL_IDS:  ${{ vars.DISCORD_CHANNEL_IDS }}
+          ROLE_IDS:     ${{ vars.DISCORD_ROLE_IDS }}
           ACTION:       ${{ github.event.action }}
           MERGED:       ${{ github.event.pull_request.merged }}
           DRAFT:        ${{ github.event.pull_request.draft }}
@@ -59,10 +61,17 @@ jobs:
             *)             LABEL=""; KEY="" ;;
           esac
 
-          WHERE=""
+          WHERE=""; MENTION=""; ALLOWED='{"parse":[]}'
           if [ -n "${KEY}" ]; then
             CID="$(printf '%s' "${CHANNEL_IDS:-{\}}" | jq -r --arg k "${KEY}" '.[$k] // empty')"
             if [ -n "${CID}" ]; then WHERE="โมดูล **${LABEL}** <#${CID}>"; else WHERE="โมดูล **${LABEL}**"; fi
+            # ping เจ้าของโมดูลถ้ารู้ role id — allowed_mentions ระบุเฉพาะ role นั้น
+            # กันไม่ให้ข้อความที่มี @everyone หลุดไป ping ทั้งเซิร์ฟเวอร์โดยไม่ตั้งใจ
+            RID="$(printf '%s' "${ROLE_IDS:-{\}}" | jq -r --arg k "${KEY}" '.[$k] // empty')"
+            if [ -n "${RID}" ]; then
+              MENTION="<@&${RID}> "
+              ALLOWED="$(jq -nc --arg r "${RID}" '{parse: [], roles: [$r]}')"
+            fi
           fi
 
           # ---- 2) ข้อความและสีตามสถานะ ----------------------------------------
@@ -85,12 +94,13 @@ jobs:
             WARN=$'\n\n⚠️ **PR นี้ตั้ง base เป็น `main`** — PR ของสมาชิกต้องเข้า `develop` กด Edit ข้างชื่อ PR แล้วเปลี่ยน base ได้เลย ไม่ต้องปิดแล้วเปิดใหม่'
           fi
 
-          CONTENT="${WHERE:+${WHERE} · }${HEAD_LINE}"
+          CONTENT="${MENTION}${WHERE:+${WHERE} · }${HEAD_LINE}"
           DESC="$(printf '`%s` → `%s`\n%s\n\nเปลี่ยน %s ไฟล์  (+%s / −%s)%s' \
             "${HEAD_REF}" "${BASE_REF}" "${WHO}" "${CHANGED}" "${ADDITIONS}" "${DELETIONS}" "${WARN}")"
 
           jq -nc \
             --arg content "${CONTENT}" \
+            --argjson am  "${ALLOWED}" \
             --arg title   "#${PR_NUMBER} ${PR_TITLE}" \
             --arg url     "${PR_URL}" \
             --arg desc    "${DESC}" \
@@ -98,7 +108,7 @@ jobs:
             --arg footer  "${REPO}" \
             '{username:"GitHub",
               content:$content,
-              allowed_mentions:{parse:[]},
+              allowed_mentions:$am,
               embeds:[{title:$title,url:$url,description:$desc,color:$color,
                        footer:{text:$footer},timestamp:(now|todate)}]}' \
           | curl -sS --fail-with-body -X POST -H "Content-Type: application/json" -d @- "${WEBHOOK_URL}"
