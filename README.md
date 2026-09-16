@@ -69,6 +69,36 @@ make warmup              # ดึงโมเดล embedding ลง volume — 
 make ingest              # สร้างดัชนีค้นหาจากเอกสาร
 ```
 
+### ทำส่วนของตัวเอง — ไม่ต้องรอใคร ไม่ต้องทำ mock เอง
+
+**ทุกโมดูลมี stub ที่ตอบตาม `docs/CONTRACT.md` อยู่แล้ว** stub พวกนี้คือ mock ของทุกคน
+คุณแก้แค่โฟลเดอร์ของตัวเอง ส่วนของเพื่อนที่คุณต้องเรียกจะยังเป็น stub ที่ตอบได้เสมอ งานของใครเสร็จช้าก็ไม่ทำให้คุณติด
+
+```bash
+git checkout develop && git pull
+git checkout -b feature/<เลขโมดูล>-<ชื่อ>-<github username>   # ดูชื่อ branch ในตารางด้านบน
+docker compose up -d --wait                    # ขึ้นทั้งระบบ ของคนอื่นเป็น stub
+# แก้โค้ดใน services/<โฟลเดอร์ของคุณ>/app/ → reload ให้เองภายในไม่กี่วินาที ไม่ต้อง build ใหม่
+curl localhost:<port ของคุณ>/health            # ยิงทดสอบ service ตัวเองตรง ๆ
+docker compose logs -f <service ของคุณ>        # ดู error
+```
+
+| โมดูล | service | ยิงทดสอบที่ |
+|---|---|---|
+| 01 web | `web` | http://localhost:3000 (หรือ `npm run dev` ดู README ของ 01) |
+| 02 api | `api` | `localhost:8000` |
+| 03 router | `router` | `localhost:8003` |
+| 04 engines | `engines` | `localhost:8004` |
+| 05 retrieval | `retrieval` | `localhost:8005` |
+| 06 generation | `generation` | `localhost:8006` |
+| 07 response-log | `response-log` | `localhost:8007` |
+
+**ต้อง build ใหม่เมื่อไหร่** — reload อัตโนมัติดูแค่ไฟล์ใน `app/`
+ถ้าแก้ `requirements.txt`, `Dockerfile` หรือไฟล์นอก `app/` (เช่น `ingest.py`, `prompts/`) ให้สั่ง `docker compose up -d --build <service>`
+ส่วน `web` build ใหม่ทุกครั้งที่แก้ ถ้าจะแก้บ่อยให้ใช้ `npm run dev`
+
+**ห้ามแก้โฟลเดอร์ของคนอื่น** ถ้าอยากให้เพื่อนตอบอะไรเพิ่ม ให้ทักห้องเขาหรือ `#contract-changes`
+
 ### ถ้าเครื่องไม่มี `make`
 
 Windows ส่วนใหญ่ไม่มีมาให้ และ macOS บางเครื่องต้องยอมรับ license ของ Xcode ก่อน
@@ -93,7 +123,7 @@ Windows ส่วนใหญ่ไม่มีมาให้ และ macOS �
 ```
 chuayduay/
 ├── docker-compose.yml           8 service + postgres · healthcheck ทุกตัว
-├── docker-compose.override.yml  port ไว้ debug 8003-8007 + hot reload (ใช้เฉพาะตอน dev)
+├── docker-compose.override.yml  port ไว้ debug 8003-8007 + แก้โค้ดใน app/ แล้ว reload ให้เอง (ใช้เฉพาะตอน dev)
 ├── Makefile                     คำสั่งลัดทั้งหมด พิมพ์ make เฉย ๆ เพื่อดูรายการ
 ├── .env.example                 ชื่อ env ทุกตัวพร้อมค่าตัวอย่างที่ปลอดภัย
 ├── docs/                        เอกสารกลาง อ่านก่อนเขียนโค้ด
