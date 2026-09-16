@@ -1,0 +1,9 @@
+# Everything the twenty-one reproduction scripts need, across all three sets.
+# The scripts read the committed artefacts of LAB01, LAB02 and LAB04 in place,
+# so those folders must be present in the clone — nothing is copied into here.
+
+numpy>=1.26
+sentence-transformers>=3.0   # LAB01 problem 3, LAB02 problems 1–5, LAB04 problems 2, 5, 6
+faiss-cpu>=1.8               # pulled in by LAB02/src/vector_store.py
+rank-bm25>=0.2.2             # LAB04 unpickles vector_db/bm25_index.pkl
+pythainlp>=5.0               # LAB04 problem 2 (Thai tokenisation)
