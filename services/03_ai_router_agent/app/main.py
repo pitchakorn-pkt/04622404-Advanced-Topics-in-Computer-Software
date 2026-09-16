@@ -52,6 +52,9 @@ async def health():
 RAG_WORDS = ("ไวไฟ", "wifi", "เน็ต", "รหัสผ่าน", "บัญชี", "แบต", "เครื่องช้า",
              "พื้นที่เต็ม", "สำรองข้อมูล", "อัปเดต", "กล้อง", "ไมค์", "สแกม")
 LOCAL_WORDS = ("จำแนก", "จัดประเภท", "หมวดหมู่", "classify")
+# คำอ้างอิงกลับที่ไม่มีบริบทของตัวเอง — ชั้น guard ต้องถามกลับ ไม่ใช่เดาแล้วตอบมั่ว
+# ของจริงจะต่างออกไป: ถ้ามี history ให้ rewrite คำถามก่อน ไม่ใช่ถามกลับทันที
+VAGUE_WORDS = ("อันนั้น", "อันนี้", "แล้วล่ะ", "ยังไงต่อ", "แบบนั้น")
 DECLINE_WORDS = ("แฮก", "hack", "เจาะระบบ", "ปลอมบัตร")
 
 
@@ -62,6 +65,8 @@ def _decide(q: str) -> tuple[str, float, str, str]:
         return "clarify", 0.9, "ข้อความสั้นเกินกว่าจะตีความได้", "guard"
     if any(w in text for w in DECLINE_WORDS):
         return "decline", 0.9, "เข้าข่ายคำขอที่ไม่ควรตอบ", "guard"
+    if text in VAGUE_WORDS or (len(text) <= 12 and any(text.startswith(w) for w in VAGUE_WORDS)):
+        return "clarify", 0.9, "ข้อความอ้างอิงกลับโดยไม่มีบริบท", "guard"
     if any(w in text for w in LOCAL_WORDS):
         return "local_ai", 0.9, "ผู้ใช้ขอให้จำแนกประเภทโดยตรง", "rules"
     hit = [w for w in RAG_WORDS if w in text]

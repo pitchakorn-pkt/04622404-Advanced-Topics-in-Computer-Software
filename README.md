@@ -37,13 +37,36 @@
 
 ```bash
 cp .env.example .env     # แล้วใส่ API key
-make up                  # ขึ้นทั้งระบบ
-make warmup              # ดึงโมเดลลง volume ครั้งแรก
+make up                  # ขึ้นทั้งระบบ รอจนทุกตัว healthy
+make warmup              # ดึงโมเดลลง volume — ครั้งแรกบนเครื่องใหม่ต้องทำ
 make ingest              # สร้างดัชนีค้นหา
 make smoke               # ทดสอบว่าต่อกันติดทั้งเส้น
 ```
 
-เปิด http://localhost:3000
+เปิด http://localhost:3000 · ผู้ใช้ตัวอย่าง `student` / `student`
+
+### ถ้าเครื่องไม่มี `make`
+
+Windows ส่วนใหญ่ไม่มีมาให้ และ macOS บางเครื่องต้องยอมรับ license ของ Xcode ก่อน
+(`sudo xcodebuild -license` แล้วกด space ลงไปจนสุด พิมพ์ `agree`) — ใช้คำสั่งเต็มแทนได้ ผลเหมือนกันทุกอย่าง
+
+| แทน | ใช้ |
+|---|---|
+| `make up` | `docker compose up -d --wait` |
+| `make down` | `docker compose down` |
+| `make build` | `docker compose build` |
+| `make ps` | `docker compose ps` |
+| `make logs s=router` | `docker compose logs -f --tail=100 router` |
+| `make rebuild s=router` | `docker compose build --no-cache router && docker compose up -d router` |
+| `make smoke` | `bash scripts/smoke_test.sh` |
+| `make ingest` | `docker compose run --rm retrieval python ingest.py` |
+| `make eval` | `python3 scripts/eval_e2e.py` |
+
+### ตอนนี้ยังเป็นโครงเปล่า
+
+ทุก service ตอบค่าปลอมที่หน้าตาถูกตาม `docs/CONTRACT.md` แต่ **ทั้งเส้นวิ่งได้จริงแล้ว**
+`web → api → router → engines / retrieval / generation → response-log` ต่อกันผ่าน HTTP จริง
+เจ้าของแต่ละโมดูลมาแทนคำว่า `STUB: replace` ในโฟลเดอร์ของตัวเองด้วยของจริง
 
 ## เอกสาร
 
