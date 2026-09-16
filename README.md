@@ -22,16 +22,18 @@
 
 ## สมาชิกและความรับผิดชอบ
 
-| โมดูล | ผู้รับผิดชอบ | โฟลเดอร์ | ผลที่วัดได้ |
+| โมดูล | ผู้รับผิดชอบ | branch | ผลที่วัดได้ |
 |---|---|---|---|
-| 01 Web App | | `services/01_web_app/` | |
-| 02 API Backend | | `services/02_api_backend/` | |
-| 03 AI Router | | `services/03_ai_router_agent/` | |
-| 04 AI Engines | | `services/04_ai_model_selection/` | |
-| 05 Retrieval | | `services/05_retrieval_knowledge/` | |
-| 06 LLM Generation | | `services/06_llm_generation/` | |
-| 07 Response / Log | | `services/07_response_logging/` | |
-| 08 Docker / Integration | Pitchakorn Phuadkhunthod | `08_monitoring_deployment/` + root | |
+| [01 Web App](services/01_web_app/) | [@jakkrich0912-web](https://github.com/jakkrich0912-web) | `feature/01-web-jakkrich0912-web` | |
+| [02 API Backend](services/02_api_backend/) | [@Chakamon02](https://github.com/Chakamon02) | `feature/02-api-Chakamon02` | |
+| [03 AI Router](services/03_ai_router_agent/) | [@Patcharanat23](https://github.com/Patcharanat23) | `feature/03-router-Patcharanat23` | |
+| [04 AI Engines](services/04_ai_model_selection/) | [@pathumpornjorrapong-ops](https://github.com/pathumpornjorrapong-ops) | `feature/04-engines-pathumpornjorrapong-ops` | |
+| [05 Retrieval](services/05_retrieval_knowledge/) | [@SoSick41](https://github.com/SoSick41) | `feature/05-retrieval-SoSick41` | |
+| [06 LLM Generation](services/06_llm_generation/) | [@phitphibul67](https://github.com/phitphibul67) | `feature/06-generation-phitphibul67` | |
+| [07 Response / Log](services/07_response_logging/) | [@jirapa-gm](https://github.com/jirapa-gm) | `feature/07-responselog-jirapa-gm` | |
+| [08 Docker / Integration](08_monitoring_deployment/) | [@pitchakorn-pkt](https://github.com/pitchakorn-pkt) | `main` / `develop` | |
+
+ช่อง "ผลที่วัดได้" เจ้าของแต่ละโมดูลเติมเองตอนมีตัวเลขจริง เช่น route accuracy, hit@5, % คำตอบที่มีอ้างอิง
 
 ## เริ่มยังไง
 
