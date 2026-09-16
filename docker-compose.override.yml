@@ -1,0 +1,22 @@
+# ไฟล์นี้ compose อ่านเพิ่มให้อัตโนมัติตอนรันบนเครื่องตัวเอง (ไม่ต้องสั่งอะไรเพิ่ม)
+# ใช้ตอน dev อย่างเดียว — เปิด port ไว้ debug และ mount โค้ดเข้าไปให้แก้แล้วเห็นผลทันที
+#
+# เวลาจะรันแบบ "เหมือนของจริง" ให้สั่ง  docker compose -f docker-compose.yml up
+services:
+  router:
+    ports: ["8003:8000"]
+    volumes: ["./services/03_ai_router_agent/app:/srv/app:ro"]
+  engines:
+    ports: ["8004:8000"]
+    volumes: ["./services/04_ai_model_selection/app:/srv/app:ro"]
+  retrieval:
+    ports: ["8005:8000"]
+    volumes: ["./services/05_retrieval_knowledge/app:/srv/app:ro"]
+  generation:
+    ports: ["8006:8000"]
+    volumes: ["./services/06_llm_generation/app:/srv/app:ro"]
+  response-log:
+    ports: ["8007:8000"]
+    volumes: ["./services/07_response_logging/app:/srv/app:ro"]
+  postgres:
+    ports: ["5432:5432"]
