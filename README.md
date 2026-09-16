@@ -25,7 +25,7 @@ Each lab lives in its own folder, `LAB01` through `LAB10`, with the final projec
 | LAB02 | RAG retrieval system over a Thai food Q&A dataset, built step by step from loading to FAISS search — see [`LAB02/README.md`](LAB02/README.md) | [`LAB02/`](LAB02/) |
 | LAB03 | no lab assigned — break in the course schedule | [`LAB03/`](LAB03/) |
 | LAB04 | Full RAG system over a Thai Q&A corpus on everyday phone and computer problems, with hybrid retrieval, reranking, and a measured comparison of Thai-language retrieval settings — see [`LAB04/README.md`](LAB04/README.md) | [`LAB04/`](LAB04/) |
-| LAB05 | no lab assigned — the class fell on a holiday | [`LAB05/`](LAB05/) |
+| LAB05 | Collected the problem write-ups from every system built in this course — 21 problems from `LAB01`, `LAB02` and `LAB04` in one folder, with the repetitions across them read side by side — see [`LAB05/README.md`](LAB05/README.md) | [`LAB05/`](LAB05/) |
 | LAB06 | Oral check on understanding: presented the RAG workflow of my LAB04 system 1:1 with the instructor, mapping every step of the flow to the file and function behind it — see [`LAB06/README.md`](LAB06/README.md) | [`LAB06/`](LAB06/) |
 | LAB07 – LAB10 | not started yet | [`LAB07/`](LAB07/) … [`LAB10/`](LAB10/) |
 | Final Project | not started yet | [`Final-Project/`](Final-Project/) |
@@ -44,3 +44,5 @@ that system, one per stage of its pipeline, with the cause, how to check for it,
 the fix applied or the reason none was. Each problem has a script that reproduces it from
 the artefacts already committed — `cd LAB0x/problems && python main.py 0` runs them all.
 Twenty-one problems in total, and most of them produce no error message at all.
+`LAB05` gathers all three sets in one place and reads them across each other; `cd
+LAB05/problems && python main.py 0` runs all twenty-one in one go.
