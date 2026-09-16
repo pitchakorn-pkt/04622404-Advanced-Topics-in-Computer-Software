@@ -37,31 +37,37 @@ clone มาจะได้ `main` ซึ่งเป็นเวอร์ชั
 - ติดตั้ง **GitHub CLI** แล้วสั่ง `gh auth login` (ง่ายที่สุด)
 - หรือสร้าง **Personal Access Token** ในหน้า GitHub Settings แล้วใช้ token แทนรหัสผ่าน
 
-**0.3 เข้า branch ของตัวเอง** — หัวหน้าสร้างไว้ให้แล้ว ชื่อตามนี้
+**0.3 สร้าง branch ของตัวเอง** — ทำครั้งเดียวตอนเริ่ม ชื่อตามตารางนี้
 
 | คุณคือ | branch ของคุณ |
 |---|---|
-| 01 Web App | `feature/01-web-<github-username>` |
-| 02 API Backend | `feature/02-api-<github-username>` |
-| 03 AI Router | `feature/03-router-<github-username>` |
-| 04 AI Engines | `feature/04-engines-<github-username>` |
-| 05 Retrieval | `feature/05-retrieval-<github-username>` |
-| 06 Generation | `feature/06-generation-<github-username>` |
-| 07 Response/Log | `feature/07-responselog-<github-username>` |
+| 01 Web App | `feature/01-web-jakkrich0912-web` |
+| 02 API Backend | `feature/02-api-Chakamon02` |
+| 03 AI Router | `feature/03-router-Patcharanat23` |
+| 04 AI Engines | `feature/04-engines-pathumpornjorrapong-ops` |
+| 05 Retrieval | `feature/05-retrieval-SoSick41` |
+| 06 Generation | `feature/06-generation-phitphibul67` |
+| 07 Response/Log | `feature/07-responselog-jirapa-gm` |
 
 ```bash
-git fetch origin
-git checkout feature/03-router-yourname      # เปลี่ยนเป็นของคุณ
+git checkout develop                                  # ต้องอยู่ที่ develop ก่อน
+git checkout -b feature/03-router-Patcharanat23       # เปลี่ยนเป็นของคุณ
+git push -u origin feature/03-router-Patcharanat23
 ```
 
-ถ้าขึ้นว่าไม่เจอ branch แปลว่าหัวหน้ายังไม่ได้สร้าง — **ทักหัวหน้า อย่าสร้างเอง** (ชื่อจะไม่ตรงกับที่ตั้งค่า CODEOWNERS ไว้)
+**บรรทัดแรกสำคัญที่สุด** — ต้องแตกจาก `develop` ไม่ใช่ `main`
+`git clone` มาจะได้ `main` ซึ่งเป็นเวอร์ชันสำหรับนำเสนอ ถ้าแตกจากตรงนั้นงานคุณจะไปคนละสายกับทีม
+เช็กด้วย `git status` บรรทัดแรกก่อนเสมอ
+
+คำสั่งชุดนี้อยู่ในข้อความปักหมุดในห้อง Discord ของคุณด้วย คัดลอกวางได้เลย
 
 **0.4 เช็กว่าอยู่ถูกที่** — พิมพ์คำสั่งนี้ทุกครั้งที่ไม่แน่ใจ
 ```bash
 git status
 ```
-บรรทัดแรกต้องขึ้นว่า `On branch feature/xx-...-yourname`
+บรรทัดแรกต้องขึ้นว่า `On branch feature/xx-...-ชื่อคุณ`
 **ถ้าขึ้นว่า `On branch main` หรือ `On branch develop` แปลว่าคุณอยู่ผิดที่ หยุดแล้วสั่ง `git checkout feature/...` ก่อนทำอะไรต่อ**
+(ครั้งแรกสุดที่ยังไม่มี branch ให้ทำตามข้อ 0.3 ก่อน)
 
 ---
 
