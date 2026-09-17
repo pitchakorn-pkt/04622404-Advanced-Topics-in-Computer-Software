@@ -17,6 +17,7 @@ class Message(Base):
 
     message_id = Column(String, primary_key=True, index=True)
     session_id = Column(String, index=True, nullable=False)
+    request_id = Column(String, index=True)
     role = Column(String, nullable=False)  # "user" or "assistant"
     content = Column(String, nullable=False)
     sources = Column(JSON, default=list)
@@ -29,6 +30,7 @@ class Message(Base):
     status = Column(String, default="ok")
     error_code = Column(String)
     trace = Column(JSON)
+    decided_at_layer = Column(String)
     created_at = Column(DateTime(timezone=True), nullable=False)
 
 class Feedback(Base):

@@ -52,6 +52,7 @@ async def write_log(entry: LogEntry, db: Session = Depends(get_db)):
     user_msg = Message(
         message_id=entry.user_message_id,
         session_id=entry.session_id,
+        request_id=entry.request_id,
         role="user",
         content=entry.user_message,
         sources=[],
@@ -59,9 +60,11 @@ async def write_log(entry: LogEntry, db: Session = Depends(get_db)):
         created_at=now
     )
     
+    decided_at = entry.trace.get("decided_at_layer") if entry.trace else None
     assistant_msg = Message(
         message_id=entry.assistant_message_id,
         session_id=entry.session_id,
+        request_id=entry.request_id,
         role="assistant",
         content=entry.answer,
         sources=entry.sources,
@@ -74,7 +77,8 @@ async def write_log(entry: LogEntry, db: Session = Depends(get_db)):
         status=entry.status,
         error_code=entry.error_code,
         trace=entry.trace,
-        created_at=now
+        decided_at_layer=decided_at,
+        created_at=now + timedelta(microseconds=1)
     )
     db.add(user_msg)
     db.add(assistant_msg)
@@ -136,6 +140,16 @@ async def history(session_id: str, user_id: str, limit: int = 20, db: Session = 
             "created_at": m.created_at.isoformat() if m.created_at else None
         })
     return {"session_id": session_id, "messages": rows}
+
+@app.get("/stats/routes")
+async def stats_routes(days: int = 7, db: Session = Depends(get_db)):
+    cutoff = _now_utc() - timedelta(days=days)
+    layers = db.query(Message.decided_at_layer, func.count(Message.decided_at_layer)).filter(
+        Message.role == "assistant",
+        Message.created_at >= cutoff,
+        Message.decided_at_layer != None
+    ).group_by(Message.decided_at_layer).all()
+    return {"by_layer": {r[0]: r[1] for r in layers}}
 
 @app.get("/stats")
 async def stats(days: int = 7, db: Session = Depends(get_db)):
