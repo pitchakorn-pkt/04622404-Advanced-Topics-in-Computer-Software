@@ -30,6 +30,7 @@ ROUTER = os.getenv("ROUTER_URL", "http://router:8000")
 RLOG = os.getenv("RESPONSE_LOG_URL", "http://response-log:8000")
 SECRET = os.getenv("JWT_SECRET_KEY", "dev-only-change-me")
 T_ROUTER = 75.0   # ต้องมากกว่างบรวมของ router (70s) ตาม CONTRACT ข้อ 0
+T_RLOG = 5.0
 
 # STUB: replace -- ของจริงเก็บในตาราง users พร้อม bcrypt hash
 DEMO_USERS = {"student": "student", "staff": "staff", "demo": "demo"}
@@ -171,17 +172,22 @@ async def chat(body: ChatRequest, bg: BackgroundTasks,
 async def _send_log(payload: dict, headers: dict) -> None:
     """ยิง log แบบไม่รอ + retry 2 ครั้ง — log หายแถวเดียวประวัติจะขาดถาวร
     แต่ถ้ายิงไม่ผ่านก็ห้ามทำให้ chat พัง แค่ log warning"""
-    import asyncio
-    async with httpx.AsyncClient() as c:
-        for wait in (0, 1, 3):
-            if wait:
-                await asyncio.sleep(wait)
-            try:
-                await c.post(f"{RLOG}/log", headers=headers, json=payload, timeout=10)
-                return
-            except Exception as exc:
-                last = exc
-    jlog(event="log_failed", error=str(last))
+    last = ""
+    for wait in (0, 1, 3):
+        if wait:
+            await asyncio.sleep(wait)
+        try:
+            r = await _client.post(f"{RLOG}/log", headers=headers, json=payload, timeout=T_RLOG)
+        except httpx.HTTPError as exc:
+            last = type(exc).__name__
+            continue
+        if r.status_code < 400:
+            return
+        last = f"HTTP {r.status_code}"
+        if r.status_code < 500 and r.status_code != 429:
+            break
+    jlog(event="log_failed", error=last, session_id=payload["session_id"],
+         message_id=payload["assistant_message_id"])
 
 
 # ---- ส่งต่อไป 07 ทั้งหมด ผู้ใช้เป็นใครเราบอก แต่ 07 เป็นคนตรวจว่า session เป็นของใคร ----
