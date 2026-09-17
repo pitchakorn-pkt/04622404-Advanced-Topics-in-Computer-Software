@@ -15,7 +15,13 @@ from datetime import datetime, timezone
 
 import httpx
 import jwt
-from fastapi import BackgroundTasks, Cookie, FastAPI, HTTPException, Response
+
+from uuid import UUID
+
+from fastapi import BackgroundTasks, Cookie, Depends, FastAPI, HTTPException, Response
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .common import error_body, forward_headers, health_payload, jlog, request_id_middleware  # noqa: F401
 from .schemas import ChatRequest, ChatResponse, FeedbackRequest, LoginRequest
@@ -30,6 +36,27 @@ DEMO_USERS = {"student": "student", "staff": "staff", "demo": "demo"}
 
 app = FastAPI(title="chuayduay · api")
 app.middleware("http")(request_id_middleware)
+
+ERROR_CODES = {
+    400: "BAD_REQUEST", 401: "UNAUTHORIZED", 404: "NOT_FOUND", 405: "METHOD_NOT_ALLOWED",
+    413: "FILE_TOO_LARGE", 422: "VALIDATION_ERROR", 429: "RATE_LIMITED",
+    500: "INTERNAL_ERROR", 501: "NOT_IMPLEMENTED", 502: "UPSTREAM_UNAVAILABLE",
+    504: "UPSTREAM_TIMEOUT",
+}
+
+
+@app.exception_handler(StarletteHTTPException)
+async def _http_error(request, exc: StarletteHTTPException):
+    code = ERROR_CODES.get(exc.status_code, "ERROR")
+    return JSONResponse(status_code=exc.status_code,
+                        content=error_body(code, str(exc.detail)))
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_error(request, exc: RequestValidationError):
+    fields = sorted({str(e["loc"][-1]) for e in exc.errors()})
+    return JSONResponse(status_code=422, content=error_body(
+        "VALIDATION_ERROR", f"ข้อมูลไม่ถูกต้อง: {', '.join(fields)}"))
 
 _client: httpx.AsyncClient | None = None
 
@@ -50,11 +77,11 @@ def _now() -> str:
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
 
 
-def _user_from_cookie(token: str | None) -> dict:
-    if not token:
+async def _user_from_cookie(access_token: str | None = Cookie(default=None)) -> dict:
+    if not access_token:
         raise HTTPException(status_code=401, detail="ยังไม่ได้เข้าสู่ระบบ")
     try:
-        return jwt.decode(token, SECRET, algorithms=["HS256"])
+        return jwt.decode(access_token, SECRET, algorithms=["HS256"])
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="เซสชันหมดอายุ")
 
@@ -83,19 +110,17 @@ async def logout(response: Response):
 
 
 @app.get("/api/auth/me")
-async def me(access_token: str | None = Cookie(default=None)):
-    return {"user": _user_from_cookie(access_token)}
+async def me(user: dict = Depends(_user_from_cookie)):
+    return {"user": user}
 
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(body: ChatRequest, bg: BackgroundTasks,
-               access_token: str | None = Cookie(default=None)):
+               user: dict = Depends(_user_from_cookie)):                    # 1
     t0 = time.perf_counter()
     assert _client is not None
     h = forward_headers()
-
-    user = _user_from_cookie(access_token)                                  # 1
-    session_id = body.session_id or str(uuid.uuid4())                       # 3 (07 สร้างแถวให้เอง)
+    session_id = str(body.session_id) if body.session_id else str(uuid.uuid4())                       # 3 (07 สร้างแถวให้เอง)
     user_mid, asst_mid = str(uuid.uuid4()), str(uuid.uuid4())               # 7
 
     history: list[dict] = []                                                # 4
@@ -161,16 +186,14 @@ async def _send_log(payload: dict, headers: dict) -> None:
 
 # ---- ส่งต่อไป 07 ทั้งหมด ผู้ใช้เป็นใครเราบอก แต่ 07 เป็นคนตรวจว่า session เป็นของใคร ----
 @app.get("/api/sessions")
-async def sessions(access_token: str | None = Cookie(default=None)):
-    user = _user_from_cookie(access_token)
+async def sessions(user: dict = Depends(_user_from_cookie)):
     r = await _client.get(f"{RLOG}/sessions", headers=forward_headers(),
                           params={"user_id": user["id"]}, timeout=10)
     return r.json()
 
 
 @app.get("/api/history/{session_id}")
-async def history(session_id: str, access_token: str | None = Cookie(default=None)):
-    user = _user_from_cookie(access_token)
+async def history(session_id: UUID, user: dict = Depends(_user_from_cookie)):
     r = await _client.get(f"{RLOG}/history/{session_id}", headers=forward_headers(),
                           params={"user_id": user["id"], "limit": 50}, timeout=10)
     if r.status_code == 404:
@@ -179,19 +202,15 @@ async def history(session_id: str, access_token: str | None = Cookie(default=Non
 
 
 @app.post("/api/feedback")
-async def feedback(body: FeedbackRequest, access_token: str | None = Cookie(default=None)):
-    user = _user_from_cookie(access_token)
-    if body.rating not in (1, -1):
-        raise HTTPException(status_code=422, detail="rating ต้องเป็น 1 หรือ -1")
+async def feedback(body: FeedbackRequest, user: dict = Depends(_user_from_cookie)):
     r = await _client.post(f"{RLOG}/feedback", headers=forward_headers(), timeout=10,
-                           json={"message_id": body.message_id, "user_id": user["id"],
+                           json={"message_id": str(body.message_id), "user_id": user["id"],
                                  "rating": body.rating, "comment": body.comment})
     return r.json()
 
 
 @app.get("/api/stats")
-async def stats(days: int = 7, access_token: str | None = Cookie(default=None)):
-    _user_from_cookie(access_token)
+async def stats(days: int = 7, user: dict = Depends(_user_from_cookie)):
     r = await _client.get(f"{RLOG}/stats", headers=forward_headers(),
                           params={"days": days}, timeout=10)
     return r.json()
