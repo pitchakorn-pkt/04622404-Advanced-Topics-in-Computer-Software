@@ -157,7 +157,9 @@ async def chat(body: ChatRequest, bg: BackgroundTasks,
                "answer": data["answer"], "sources": data.get("sources", []),
                "route": data["route"], "engines_used": data.get("engines_used", []),
                "confidence": data.get("confidence"), "reasoning": data.get("reasoning"),
-               "latency_ms": data.get("latency_ms"), "status": "ok",
+               "latency_ms": data.get("latency_ms"),
+               "token_usage": data.get("token_usage") or {"input": 0, "output": 0},
+               "status": "ok", "error_code": None,
                "created_at": created, "trace": data.get("trace")}
     bg.add_task(_send_log, payload, dict(h))                                # 10 ยิงหลังตอบ ไม่รอ
 
@@ -189,37 +191,48 @@ async def _send_log(payload: dict, headers: dict) -> None:
     jlog(event="log_failed", error=last, session_id=payload["session_id"],
          message_id=payload["assistant_message_id"])
 
+async def _rlog(method: str, path: str, *, params: dict | None = None,
+                json: dict | None = None, not_found: str = "ไม่พบข้อมูล") -> dict:
+    try:
+        r = await _client.request(method, f"{RLOG}{path}", params=params, json=json,
+                                  headers=forward_headers(), timeout=T_RLOG)
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="ระบบประวัติใช้เวลานานเกินไป")
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="ระบบประวัติไม่พร้อมใช้งานชั่วคราว")
+    if r.status_code == 404:
+        raise HTTPException(status_code=404, detail=not_found)
+    if r.status_code >= 400:
+        jlog(event="response_log_error", path=path, upstream_status=r.status_code)
+        raise HTTPException(status_code=502, detail="ระบบประวัติไม่พร้อมใช้งานชั่วคราว")
+    try:
+        return r.json()
+    except ValueError:
+        raise HTTPException(status_code=502, detail="ระบบประวัติตอบกลับไม่ถูกต้อง")
 
 # ---- ส่งต่อไป 07 ทั้งหมด ผู้ใช้เป็นใครเราบอก แต่ 07 เป็นคนตรวจว่า session เป็นของใคร ----
 @app.get("/api/sessions")
 async def sessions(user: dict = Depends(_user_from_cookie)):
-    r = await _client.get(f"{RLOG}/sessions", headers=forward_headers(),
-                          params={"user_id": user["id"]}, timeout=10)
-    return r.json()
+    return await _rlog("GET", "/sessions", params={"user_id": user["id"]})
 
 
 @app.get("/api/history/{session_id}")
 async def history(session_id: UUID, user: dict = Depends(_user_from_cookie)):
-    r = await _client.get(f"{RLOG}/history/{session_id}", headers=forward_headers(),
-                          params={"user_id": user["id"], "limit": 50}, timeout=10)
-    if r.status_code == 404:
-        raise HTTPException(status_code=404, detail="ไม่พบบทสนทนานี้")
-    return r.json()
+    return await _rlog("GET", f"/history/{session_id}",
+                       params={"user_id": user["id"], "limit": 50},
+                       not_found="ไม่พบบทสนทนานี้")
 
 
 @app.post("/api/feedback")
 async def feedback(body: FeedbackRequest, user: dict = Depends(_user_from_cookie)):
-    r = await _client.post(f"{RLOG}/feedback", headers=forward_headers(), timeout=10,
-                           json={"message_id": str(body.message_id), "user_id": user["id"],
-                                 "rating": body.rating, "comment": body.comment})
-    return r.json()
+    return await _rlog("POST", "/feedback", json={
+        "message_id": str(body.message_id), "user_id": user["id"],
+        "rating": body.rating, "comment": body.comment})
 
 
 @app.get("/api/stats")
 async def stats(days: int = 7, user: dict = Depends(_user_from_cookie)):
-    r = await _client.get(f"{RLOG}/stats", headers=forward_headers(),
-                          params={"days": days}, timeout=10)
-    return r.json()
+    return await _rlog("GET", "/stats", params={"days": days})
 
 
 @app.post("/api/upload")
