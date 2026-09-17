@@ -105,7 +105,9 @@ def _parse_frontmatter(text: str) -> tuple[dict, str]:
     for line in m.group(1).splitlines():
         if ":" in line:
             k, v = line.split(":", 1)
-            meta[k.strip()] = v.strip()
+            v = v.strip()
+            if v:  # "url:" ว่าง ๆ ต้องเป็น None ไม่ใช่ "" (Source.url เป็น str | None)
+                meta[k.strip()] = v
     return meta, m.group(2)
 
 
