@@ -1,0 +1,11 @@
+doc_id,title,url,date,category,status,file
+it-battery,คำถามที่พบบ่อย: แบตเตอรี่และการชาร์จ,internal://daily_tech_qa/battery,2026-01-15,it_support,active,daily_tech_qa.txt
+it-performance,คำถามที่พบบ่อย: เครื่องช้าและพื้นที่เต็ม,internal://daily_tech_qa/performance,2026-01-15,it_support,active,daily_tech_qa.txt
+it-connectivity,คำถามที่พบบ่อย: อินเทอร์เน็ตและไวไฟ,internal://daily_tech_qa/connectivity,2026-01-15,it_support,active,daily_tech_qa.txt
+it-account,คำถามที่พบบ่อย: บัญชีและรหัสผ่าน,internal://daily_tech_qa/account,2026-01-15,it_support,active,daily_tech_qa.txt
+it-security,คำถามที่พบบ่อย: มิจฉาชีพและความปลอดภัย,internal://daily_tech_qa/security,2026-01-15,it_support,active,daily_tech_qa.txt
+it-backup,คำถามที่พบบ่อย: ข้อมูลและการสำรอง,internal://daily_tech_qa/backup,2026-01-15,it_support,active,daily_tech_qa.txt
+it-apps,คำถามที่พบบ่อย: แอปและการอัปเดต,internal://daily_tech_qa/apps,2026-01-15,it_support,active,daily_tech_qa.txt
+it-hardware,คำถามที่พบบ่อย: หน้าจอ เสียง และกล้อง,internal://daily_tech_qa/hardware,2026-01-15,it_support,active,daily_tech_qa.txt
+it-buying-care,คำถามที่พบบ่อย: การเลือกซื้อและดูแลเครื่อง,internal://daily_tech_qa/buying-care,2026-01-15,it_support,active,daily_tech_qa.txt
+it-office,คำถามที่พบบ่อย: การใช้งานเอกสารและงานทั่วไป,internal://daily_tech_qa/office,2026-01-15,it_support,active,daily_tech_qa.txt

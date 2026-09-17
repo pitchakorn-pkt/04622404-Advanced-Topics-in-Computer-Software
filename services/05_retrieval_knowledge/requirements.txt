@@ -1,3 +1,10 @@
 fastapi==0.115.*
 uvicorn[standard]==0.32.*
 pydantic==2.9.*
+pythainlp==5.3.*
+rank_bm25==0.2.*
+sentence-transformers==6.0.*
+chromadb==1.5.*
+pdfplumber==0.11.*
+beautifulsoup4==4.15.*
+numpy==2.2.*

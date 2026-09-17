@@ -1,0 +1,4 @@
+# .gitignore ของรากรีโปมี "data/index/" แบบ anchor ที่ root เท่านั้น (มี "/" กลาง pattern)
+# เลยไม่ครอบ services/05_retrieval_knowledge/data/index/ ที่ซ้อนอยู่ลึกกว่า — กันเองในนี้แทน
+data/index/
+.hf_cache/
