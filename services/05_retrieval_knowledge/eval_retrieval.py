@@ -90,12 +90,15 @@ def main() -> int:
         print(f"[warn] {len(still_unmapped_ids)} old_qa_index ใน golden set หา chunk ใหม่ไม่เจอ: "
               f"{sorted(still_unmapped_ids)}", file=sys.stderr)
 
-    rows = [evaluate(m, golden, id_map, args.variant, args.top_k) for m in ("bm25", "vector", "hybrid")]
+    rows = [evaluate(m, golden, id_map, args.variant, args.top_k) for m in ("bm25", "vector", "hybrid", "rerank")]
 
     print(f"\nวัดด้วย variant `{args.variant}` บน golden set {len(golden)} ข้อ (top_k={args.top_k})\n")
     header = "| วิธีค้น | hit@1 | hit@5 | MRR |"
     sep = "|---|---|---|---|"
-    label = {"bm25": "BM25 อย่างเดียว", "vector": "vector อย่างเดียว", "hybrid": "hybrid (RRF)"}
+    label = {
+        "bm25": "BM25 อย่างเดียว", "vector": "vector อย่างเดียว", "hybrid": "hybrid (RRF)",
+        "rerank": "hybrid + cross-encoder rerank",
+    }
     lines = [header, sep]
     for row in rows:
         lines.append(f"| {label[row['method']]} | {row['hit@1']:.4f} | {row['hit@5']:.4f} | {row['mrr']:.4f} |")

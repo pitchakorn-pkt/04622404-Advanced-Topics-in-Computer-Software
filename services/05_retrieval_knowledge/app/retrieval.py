@@ -1,14 +1,15 @@
 """Hybrid retrieval: BM25 (pythainlp) + vector (e5 ผ่าน Chroma) รวมด้วย RRF
+บวก cross-encoder reranker เสริม (ของ "Could" ในสเปก) เป็นขั้นสุดท้ายก่อนตัด top_k
 
 ใช้ทั้งจาก main.py (online, ผ่าน HTTP) และ eval_retrieval.py (offline, เรียกฟังก์ชันตรง ๆ
-เพื่อวัด BM25-only / vector-only / hybrid แยกกันตาม golden set)
+เพื่อวัด BM25-only / vector-only / hybrid / hybrid+rerank แยกกันตาม golden set)
 """
 from __future__ import annotations
 
 import threading
 from dataclasses import dataclass
 
-from . import config, embeddings
+from . import config, embeddings, reranker
 from .index_store import ChunkRecord, load_bm25, load_chroma_collection, load_index_meta
 from .text_processing import segment_thai
 
@@ -75,6 +76,8 @@ def warm_up() -> None:
     engine = _get_engine()
     if engine.collection is not None:
         embeddings.embed_query("อุ่นเครื่อง")
+    if config.RERANK_ENABLED and engine.records:
+        reranker.rerank("อุ่นเครื่อง", [(engine.records[0], 0.0, None, None)], top_k=1)
 
 
 def _passes_filters(rec: ChunkRecord, filters: Filters | None) -> bool:
@@ -131,7 +134,7 @@ def vector_rank(query: str, filters: Filters | None, limit: int) -> list[tuple[C
 
 def _rrf_fuse(
     ranked_lists: list[list[tuple[ChunkRecord, float]]],
-    top_k: int,
+    limit: int,
 ) -> list[SearchHit]:
     rrf_scores: dict[str, float] = {}
     bm25_scores: dict[str, float] = {}
@@ -148,7 +151,7 @@ def _rrf_fuse(
         rrf_scores[rec.chunk_id] = rrf_scores.get(rec.chunk_id, 0.0) + 1.0 / (config.RRF_K + rank)
         vector_scores[rec.chunk_id] = score
 
-    ranked_ids = sorted(rrf_scores, key=lambda cid: rrf_scores[cid], reverse=True)[:top_k]
+    ranked_ids = sorted(rrf_scores, key=lambda cid: rrf_scores[cid], reverse=True)[:limit]
     return [
         SearchHit(
             record=record_by_id[cid],
@@ -178,7 +181,10 @@ def search(
     filters: Filters | None = None,
     method: str = "hybrid",
 ) -> list[SearchHit]:
-    """method: 'hybrid' (default, ของจริงที่ /search ใช้) | 'bm25' | 'vector' — สองอันหลังไว้ให้ eval เทียบกัน"""
+    """method: 'hybrid' (default, ของจริงที่ /search ใช้เมื่อ RERANK_ENABLED=false) | 'bm25' | 'vector'
+    | 'rerank' (hybrid ต่อด้วย cross-encoder — ของจริงที่ /search ใช้เมื่อ RERANK_ENABLED=true ค่าเริ่มต้น)
+    สามอันแรกไว้ให้ eval_retrieval.py เทียบกันว่าทำไมต้อง hybrid (+rerank)
+    """
     candidate_pool = max(top_k * 10, 50)
 
     if method == "bm25":
@@ -186,9 +192,19 @@ def search(
     if method == "vector":
         return _as_hits(vector_rank(query, filters, candidate_pool), top_k, is_bm25=False)
 
-    bm25_list = bm25_rank(query, filters, candidate_pool)
-    vector_list = vector_rank(query, filters, candidate_pool)
-    return _rrf_fuse([bm25_list, vector_list], top_k)
+    rerank_pool = max(candidate_pool, config.RERANK_CANDIDATE_POOL)
+    bm25_list = bm25_rank(query, filters, rerank_pool)
+    vector_list = vector_rank(query, filters, rerank_pool)
+    fused = _rrf_fuse([bm25_list, vector_list], limit=rerank_pool)
+
+    if method == "hybrid":
+        return fused[:top_k]
+    if method == "rerank":
+        candidates = [(h.record, h.fused_score, h.bm25_score, h.vector_score)
+                      for h in fused[:config.RERANK_CANDIDATE_POOL]]
+        reranked = reranker.rerank(query, candidates, top_k)
+        return [SearchHit(record=r, fused_score=s, bm25_score=b, vector_score=v) for r, s, b, v in reranked]
+    raise ValueError(f"unknown method: {method}")
 
 
 def _is_confident(hit: SearchHit) -> bool:
@@ -200,7 +216,12 @@ def _is_confident(hit: SearchHit) -> bool:
 
 
 def search_above_threshold(query: str, top_k: int, filters: Filters | None) -> list[SearchHit]:
-    hits = search(query, top_k=top_k, filters=filters, method="hybrid")
-    if not hits or not _is_confident(hits[0]):
+    """เช็ค 'เจอจริงไหม' จากคะแนนดิบของ hybrid เสมอ (ไม่ขึ้นกับ reranker) แล้วค่อยตัดสินใจว่าจะคืน
+    ผลแบบ hybrid ตรง ๆ หรือส่งต่อให้ cross-encoder จัดอันดับใหม่ก่อนคืน top_k
+    """
+    hybrid_hits = search(query, top_k=top_k, filters=filters, method="hybrid")
+    if not hybrid_hits or not _is_confident(hybrid_hits[0]):
         return []
-    return hits
+    if config.RERANK_ENABLED:
+        return search(query, top_k=top_k, filters=filters, method="rerank")
+    return hybrid_hits
