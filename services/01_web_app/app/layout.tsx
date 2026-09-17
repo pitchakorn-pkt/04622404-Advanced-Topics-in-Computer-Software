@@ -1,3 +1,5 @@
+import "./globals.css";
+
 export const metadata = { title: "ช่วยด้วย", description: "ผู้ช่วยแก้ปัญหามือถือและคอมพิวเตอร์" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
