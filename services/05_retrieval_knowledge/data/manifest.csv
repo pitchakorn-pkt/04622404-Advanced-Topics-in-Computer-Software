@@ -19,13 +19,13 @@ howto-07-321-backup-rule,กฎการสำรองข้อมูล 3-2-1 
 howto-08-system-vs-app-update,อัปเดตระบบกับอัปเดตแอป ต่างกันยังไง ควรทำอันไหนก่อน,,2026-06-01,howto,active,howto/08-system-vs-app-update.md
 howto-09-manage-battery-hungry-apps,จัดการแอปที่กินแบตและพื้นที่แบบไม่ต้องลบทิ้ง,,2026-06-01,howto,active,howto/09-manage-battery-hungry-apps.md
 howto-10-screen-speaker-camera-care,ดูแลจอ ลำโพง และกล้องมือถือให้ใช้งานได้นานขึ้น,,2026-06-01,howto,active,howto/10-screen-speaker-camera-care.md
-howto-draft-for-07-01-bluetooth-connect-fix,บลูทูธเชื่อมต่อไม่ติด หรือเชื่อมแล้วหลุดบ่อย แก้ทีละขั้น,,2026-06-05,howto,active,howto/draft-for-07-01-bluetooth-connect-fix.md
-howto-draft-for-07-02-online-scam-red-flags,สังเกตกลโกงมิจฉาชีพออนไลน์รูปแบบใหม่ ก่อนโอนเงินหรือกดลิงก์,,2026-06-05,howto,active,howto/draft-for-07-02-online-scam-red-flags.md
-howto-draft-for-07-03-laptop-overheating-fan-noise,โน้ตบุ๊กร้อนจัดและพัดลมดังตลอดเวลา สาเหตุและวิธีแก้,,2026-06-05,howto,active,howto/draft-for-07-03-laptop-overheating-fan-noise.md
-howto-draft-for-07-04-recover-data-broken-phone,กู้ข้อมูลจากมือถือจอแตกหรือเปิดไม่ติด ทำได้ไหม ทำยังไง,,2026-06-05,howto,active,howto/draft-for-07-04-recover-data-broken-phone.md
-howto-draft-for-07-05-app-permission-management,จัดการสิทธิ์การเข้าถึงของแอป (permission) ให้ปลอดภัยและเป็นส่วนตัว,,2026-06-05,howto,active,howto/draft-for-07-05-app-permission-management.md
-howto-draft-for-07-06-wireless-keyboard-mouse-fix,คีย์บอร์ดหรือเมาส์ไร้สายเชื่อมต่อไม่ติด แก้ทีละขั้น,,2026-06-05,howto,active,howto/draft-for-07-06-wireless-keyboard-mouse-fix.md
-howto-draft-for-07-07-buying-used-phone-safely,เลือกซื้อมือถือมือสองยังไงให้ปลอดภัย ไม่โดนโกง,,2026-06-05,howto,active,howto/draft-for-07-07-buying-used-phone-safely.md
-howto-draft-for-07-08-pdf-to-word-scanned-docs,แปลงไฟล์ PDF เป็น Word และแก้ไขเอกสารที่สแกนมา,,2026-06-05,howto,active,howto/draft-for-07-08-pdf-to-word-scanned-docs.md
-howto-draft-for-07-09-transfer-data-new-phone,ย้ายข้อมูลจากเครื่องเก่าไปเครื่องใหม่แบบไม่ตกหล่น,,2026-06-05,howto,active,howto/draft-for-07-09-transfer-data-new-phone.md
-howto-draft-for-07-10-public-wifi-safety-travel,ใช้ไวไฟสาธารณะให้ปลอดภัยเวลาเดินทางหรือทำงานนอกสถานที่,,2026-06-05,howto,active,howto/draft-for-07-10-public-wifi-safety-travel.md
+howto-person07-01-wifi-connection,วิธีแก้ปัญหาเชื่อมต่อ Wi-Fi หอพักหรือที่ทำงานไม่ได้,https://help.example.com/wifi-issue,2026-06-01,howto,active,howto/person07-01-wifi-connection.md
+howto-person07-02-account-2fa,วิธีตั้งค่า 2FA ป้องกันโดนแฮ็กบัญชี,https://help.example.com/security-2fa,2026-06-01,howto,active,howto/person07-02-account-2fa.md
+howto-person07-03-slow-computer,วิธีแก้ปัญหาคอมพิวเตอร์ทำงานช้าลงผิดปกติ,https://help.example.com/pc-performance,2026-06-01,howto,active,howto/person07-03-slow-computer.md
+howto-person07-04-cloud-backup,วิธีสำรองข้อมูลรูปภาพและไฟล์สำคัญลง Cloud,https://help.example.com/data-backup,2026-06-01,howto,active,howto/person07-04-cloud-backup.md
+howto-person07-05-app-crash,วิธีแก้ไขแอปพลิเคชันเด้งออกหรือค้างบ่อย,https://help.example.com/app-updates,2026-06-01,howto,active,howto/person07-05-app-crash.md
+howto-person07-06-mic-camera-issue,วิธีแก้ไขปัญหาไมโครโฟนหรือกล้องไม่ทำงานตอนประชุม,https://help.example.com/hardware-media,2026-06-01,howto,active,howto/person07-06-mic-camera-issue.md
+howto-person07-07-mobile-hotspot,วิธีแชร์เน็ตจากมือถือ (Personal Hotspot) เมื่อเน็ตบ้านล่ม,https://help.example.com/mobile-hotspot,2026-06-01,howto,active,howto/person07-07-mobile-hotspot.md
+howto-person07-08-laptop-battery,วิธียืดอายุแบตเตอรี่โน้ตบุ๊กให้ใช้งานได้นานขึ้น,https://help.example.com/battery-life,2026-06-01,howto,active,howto/person07-08-laptop-battery.md
+howto-person07-09-phishing-email,วิธีสังเกตอีเมลหลอกลวง (Phishing) และการรับมือ,https://help.example.com/phishing,2026-06-01,howto,active,howto/person07-09-phishing-email.md
+howto-person07-10-clear-cache,วิธีเคลียร์ Cache เบราว์เซอร์ แก้ปัญหาเข้าเว็บไม่ได้,https://help.example.com/clear-cache,2026-06-01,howto,active,howto/person07-10-clear-cache.md
