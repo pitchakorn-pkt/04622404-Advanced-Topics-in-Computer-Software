@@ -14,7 +14,7 @@
 | โมดูล | ชื่อ–สกุล | รหัสนักศึกษา | GitHub | หน้าที่ | ผลที่วัดได้ |
 |---|---|---|---|---|---|
 | [01 Web App](services/01_web_app/) | Jakkrich Sriraksa | 116730462014-5 | [@jakkrich0912-web](https://github.com/jakkrich0912-web) | หน้าเว็บที่ผู้ใช้เห็น — แชท แหล่งอ้างอิง ประวัติ ปุ่ม 👍👎 แผงแสดงการตัดสินใจของ agent | |
-| [02 API Backend](services/02_api_backend/) | _(รอข้อมูล)_ | _(รอข้อมูล)_ | [@Chakamon02](https://github.com/Chakamon02) | ประตูหน้าบ้าน — ล็อกอิน ตรวจ input ประกอบ context แล้วส่งต่อให้ router | |
+| [02 API Backend](services/02_api_backend/) | Karmolputh Phatarathorn | 116610462034-7 | [@Chakamon02](https://github.com/Chakamon02) | ประตูหน้าบ้าน — ล็อกอิน ตรวจ input ประกอบ context แล้วส่งต่อให้ router | |
 | [03 AI Router](services/03_ai_router_agent/) | Patcharanat Budploy | 116730462038-4 | [@Patcharanat23](https://github.com/Patcharanat23) | สมองของระบบ — ตัดสินใจว่าคำถามไป route ไหน ด้วย 4 ชั้น guard → rules → classifier → LLM | |
 | [04 AI Engines](services/04_ai_model_selection/) | Pathumporn Jorrapong | 116730462009-5 | [@pathumpornjorrapong-ops](https://github.com/pathumpornjorrapong-ops) | General AI ผ่าน Groq พร้อม fallback · Local AI โมเดลจำแนก 8 หมวดที่เทรนเอง | |
 | [05 Retrieval](services/05_retrieval_knowledge/) | Suphakorn Nonthong | 116730462028-5 | [@SoSick41](https://github.com/SoSick41) | เตรียมคลังความรู้และค้นแบบ hybrid BM25 + vector — ที่มาของแหล่งอ้างอิงทุกข้อ | |
