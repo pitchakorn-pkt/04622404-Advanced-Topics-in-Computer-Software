@@ -69,6 +69,12 @@ make warmup              # ดึงโมเดล embedding ลง volume — 
 make ingest              # สร้างดัชนีค้นหาจากเอกสาร
 ```
 
+ถ้า `make warmup` / `make ingest` ขึ้น `PermissionError: /models/...` หรือ `/data/index` แปลว่า volume ในเครื่องถูกสร้างไว้ตั้งแต่ก่อนแก้ Dockerfile และยังเป็นของ root อยู่ แก้ครั้งเดียวด้วย
+
+```bash
+docker compose run --rm -u root retrieval chown -R 10001:10001 /data/index /models
+```
+
 ### ทำส่วนของตัวเอง — ไม่ต้องรอใคร ไม่ต้องทำ mock เอง
 
 **ทุกโมดูลมี stub ที่ตอบตาม `docs/CONTRACT.md` อยู่แล้ว** stub พวกนี้คือ mock ของทุกคน

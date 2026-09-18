@@ -15,7 +15,9 @@ RUN pip install -r requirements.txt
 COPY . .
 
 # รันด้วยผู้ใช้ธรรมดา ไม่ใช่ root — ถ้าโดนเจาะจะเสียหายน้อยกว่า
-RUN useradd -m -u 10001 app && chown -R app:app /srv
+# สร้างจุด mount ของ named volume ไว้ใน image ให้เป็นของ app ด้วย
+# volume ใหม่จะลอกเจ้าของมาจากตรงนี้ ถ้าไม่มี docker สร้างเป็นของ root แล้ว ingest เขียนไม่ได้
+RUN useradd -m -u 10001 app && mkdir -p /data/index /models && chown -R app:app /srv /data /models
 USER app
 
 EXPOSE 8000
