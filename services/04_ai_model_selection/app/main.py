@@ -3,8 +3,11 @@
 /general — เรียก LLM ผ่านไลบรารี openai (AsyncOpenAI) ชี้ base_url ไป Groq
 พร้อม fallback provider, timeout, และเช็คโมเดลตอน startup ตาม CONTRACT §7
 /local/classify — เชื่อมกับโมเดล intent classifier ที่เทรนจาก data/intents.csv
-(TF-IDF word+char n-gram + LinearSVC, ผ่าน DoD ที่ CV accuracy 81.92%)
-โหลดจาก models/intent_v1.joblib แบบ lazy + cache ต่อ process
+(TF-IDF word+char n-gram + LinearSVC ครอบด้วย CalibratedClassifierCV,
+ผ่าน DoD ที่ CV accuracy 81.92%) โหลดจาก models/intent_v1.joblib แบบ lazy
++ cache ต่อ process ใช้ clf.predict_proba() ตรงๆ (ไม่ใช่ softmax เอง — แก้ตาม
+code review ของ PR #8 ที่พบว่า score จาก decision_function เดิมต่ำเกินไปจน
+ไม่ถึงเกณฑ์ CONTRACT ที่ router ต้องการ score >= 0.75 เลยแม้แต่ข้อเดียว)
 สำคัญ: ต้องมี nlp_utils.py (โฟลเดอร์เดียวกับ train.py) อยู่บน sys.path ตอนรัน
 service นี้ด้วย — joblib.load ต้อง import nlp_utils เพื่อคืนค่า thai_tokenizer
 ที่ฝังอยู่ใน vectorizer ที่เซฟไว้ ถ้าหาไม่เจอ /local/classify จะพังเป็น 500
@@ -80,16 +83,6 @@ def _get_local_model() -> dict:
     if _local_model_bundle is None:
         _local_model_bundle = joblib.load(LOCAL_MODEL_PATH)
     return _local_model_bundle
-
-
-def _softmax(scores: np.ndarray) -> np.ndarray:
-    """LinearSVC ไม่มี predict_proba — แปลง decision_function (raw score ต่อคลาส)
-    เป็น pseudo-probability ด้วย softmax เพื่อให้ยังคืน score/top_k ตาม schema เดิมได้
-    (ตัวเลขนี้ไม่ใช่ probability ที่ผ่านการ calibrate จริง ใช้เทียบลำดับ/ความมั่นใจสัมพัทธ์เท่านั้น)
-    """
-    shifted = scores - scores.max()
-    exp = np.exp(shifted)
-    return exp / exp.sum()
 
 
 def _get_client(provider: str) -> AsyncOpenAI:
@@ -236,8 +229,9 @@ async def classify(req: ClassifyRequest):
     vectorizer, clf = bundle["vectorizer"], bundle["classifier"]
 
     X = vectorizer.transform([req.text])
-    scores = clf.decision_function(X)[0]  # LinearSVC ไม่มี predict_proba ใช้ raw score แทน
-    probs = _softmax(np.asarray(scores))
+    # clf คือ CalibratedClassifierCV ครอบ LinearSVC — predict_proba() ให้ค่าที่
+    # ผ่านการ calibrate จริง (Platt scaling) ใช้เทียบกับเกณฑ์ CONTRACT (>= 0.75) ได้ตรงๆ
+    probs = clf.predict_proba(X)[0]
 
     order = np.argsort(probs)[::-1]
     classes = clf.classes_

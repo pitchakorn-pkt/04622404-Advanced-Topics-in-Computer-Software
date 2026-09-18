@@ -1,11 +1,19 @@
 """เทรนโมเดลจำแนกหมวดคำถาม (Local AI) จาก data/intents.csv
 TF-IDF (word-level ตัดคำด้วย pythainlp ผ่าน nlp_utils.thai_tokenizer + char-level
-2-4 ตัวอักษร) + LinearSVC
+2-4 ตัวอักษร) + LinearSVC ครอบด้วย CalibratedClassifierCV เพื่อให้ได้
+predict_proba() ที่ใช้งานได้จริง (ดูหมายเหตุ CALIBRATION ด้านล่าง)
 
 หมายเหตุสำคัญ: thai_tokenizer อยู่ใน nlp_utils.py (ไม่ใช่ไฟล์นี้) เพราะ
 TfidfVectorizer เก็บ reference ไปยังฟังก์ชันตรงๆ ตอน joblib.dump — ถ้านิยาม
 ไว้ในไฟล์นี้ (module จะกลายเป็น __main__ ตอนรัน `python train.py` ตรงๆ)
 app/main.py ที่ joblib.load ทีหลังจากคนละ process จะหาฟังก์ชันไม่เจอ
+
+หมายเหตุ CALIBRATION (สำคัญมาก): LinearSVC เพียวๆ ไม่มี predict_proba —
+เดิมใช้ decision_function() แล้วแปลงด้วย softmax เอง (pseudo-probability)
+แต่ค่าที่ได้ต่ำเกินไปมาก (สูงสุดวัดได้ 0.36) ทำให้ CONTRACT ที่กำหนดให้ router
+เชื่อผล classifier เมื่อ score >= 0.75 ไม่มีวันถูกใช้งานจริง (พบจาก code review
+PR #8) แก้โดยครอบ LinearSVC ด้วย CalibratedClassifierCV (Platt scaling ผ่าน
+cv=5) แล้วใช้ .predict_proba() ตรงๆ ซึ่งให้ค่าที่ใช้งานได้จริงตามเกณฑ์ 0.75
 
 รันด้วย:
     python train.py
@@ -20,6 +28,7 @@ from pathlib import Path
 
 import joblib
 import numpy as np
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
@@ -36,6 +45,7 @@ MODEL_PATH = MODEL_DIR / "intent_v1.joblib"
 RANDOM_STATE = 42
 TEST_SIZE = 0.2
 CV_FOLDS = 5  # จำนวน fold สำหรับ cross-validation
+CALIBRATION_CV_FOLDS = 5  # จำนวน fold ภายในสำหรับ CalibratedClassifierCV
 
 
 def load_dataset(csv_path: Path) -> tuple[list[str], list[str]]:
@@ -68,17 +78,27 @@ def build_vectorizer() -> FeatureUnion:
     return FeatureUnion([("word", word_vec), ("char", char_vec)])
 
 
+def build_classifier() -> CalibratedClassifierCV:
+    """LinearSVC ครอบด้วย CalibratedClassifierCV ให้ได้ predict_proba() ที่ใช้งานได้จริง
+    (ดูหมายเหตุ CALIBRATION ที่หัวไฟล์ — เดิมใช้ softmax เอง แต่ score ต่ำเกินไป
+    จนไม่ผ่านเกณฑ์ 0.75 ของ CONTRACT เลยแม้แต่ข้อเดียว)
+    """
+    base_clf = LinearSVC(
+        class_weight="balanced",
+        random_state=RANDOM_STATE,
+        max_iter=10000,
+    )
+    return CalibratedClassifierCV(base_clf, method="sigmoid", cv=CALIBRATION_CV_FOLDS)
+
+
 def build_pipeline() -> Pipeline:
-    """สร้าง vectorizer (word+char) + LinearSVC pipeline เดียวกันทั้งตอน CV และตอนเทรนจริง
-    LinearSVC มักให้ผลดีกว่า LogisticRegression บนฟีเจอร์ TF-IDF แบบ sparse
+    """สร้าง vectorizer (word+char) + calibrated LinearSVC pipeline เดียวกัน
+    ทั้งตอน CV และตอนเทรนจริง LinearSVC มักให้ผลดีกว่า LogisticRegression
+    บนฟีเจอร์ TF-IDF แบบ sparse
     """
     return Pipeline([
         ("features", build_vectorizer()),
-        ("clf", LinearSVC(
-            class_weight="balanced",
-            random_state=RANDOM_STATE,
-            max_iter=10000,
-        )),
+        ("clf", build_classifier()),
     ])
 
 
@@ -114,18 +134,34 @@ def main() -> None:
     X_train_vec = vectorizer.fit_transform(X_train)
     X_test_vec = vectorizer.transform(X_test)
 
-    clf = LinearSVC(
-        class_weight="balanced",  # กันหมวดที่มีตัวอย่างน้อยกว่าถูกมองข้าม
-        random_state=RANDOM_STATE,
-        max_iter=10000,
-    )
+    clf = build_classifier()
     clf.fit(X_train_vec, y_train)
 
     y_pred = clf.predict(X_test_vec)
+    y_proba = clf.predict_proba(X_test_vec)
     acc = accuracy_score(y_test, y_pred)
 
     print(f"\n(single split เดิม สำหรับดูรายละเอียด — ไม่ใช่ตัวชี้วัด DoD): "
           f"accuracy = {acc:.2%}")
+
+    # เช็คตรงตาม CONTRACT: router จะเชื่อผล classifier เมื่อ score >= 0.75 เท่านั้น
+    # (ตัวเลขนี้คือสิ่งที่ code review ของ PR #8 ชี้ว่าพังตั้งแต่ตอน softmax เอง)
+    ROUTER_THRESHOLD = 0.75
+    top_scores = y_proba.max(axis=1)
+    above_threshold = top_scores >= ROUTER_THRESHOLD
+    n_above = int(above_threshold.sum())
+    if n_above:
+        acc_above = accuracy_score(
+            np.array(y_test)[above_threshold], np.array(y_pred)[above_threshold]
+        )
+    else:
+        acc_above = 0.0
+    print(
+        f"เช็คเกณฑ์ router (score >= {ROUTER_THRESHOLD}): "
+        f"{n_above}/{len(y_test)} ข้อถึงเกณฑ์ ({n_above / len(y_test):.1%}), "
+        f"ถูก {acc_above:.1%} ในกลุ่มที่ถึงเกณฑ์"
+    )
+
     print("\nClassification report:")
     print(classification_report(y_test, y_pred, zero_division=0))
     print("Confusion matrix (แถว=จริง, คอลัมน์=ทำนาย):")
