@@ -1,12 +1,13 @@
 """06 LLM Generation — ด่านสุดท้ายก่อนถึงผู้ใช้
 
 สามโหมดคือสามงานคนละแบบ แยกฟังก์ชันชัดเจน
-  grounded       เรียก LLM เขียนคำตอบจาก contexts พร้อม [n] ที่ตรวจสอบได้
-  passthrough    ไม่เรียก LLM ทำแค่ safety + จัด markdown ของ draft แล้วคืน model="none"
-  explain_local  เรียก LLM สั้น ๆ แปลงผล classifier เป็นประโยคคน
+    grounded        เรียก LLM เขียนคำตอบจาก contexts พร้อม [n] ที่ตรวจสอบได้
+    passthrough     ไม่เรียก LLM ทำแค่ safety + จัด markdown ของ draft แล้วคืน model="none"
+    explain_local   เรียก LLM สั้น ๆ แปลงผล classifier เป็นประโยคคน
 """
 import os
 import re
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import jinja2
@@ -28,9 +29,11 @@ jinja_env = jinja2.Environment(
     autoescape=jinja2.select_autoescape(["html", "xml"]),
 )
 
+# PII Regex Patterns for Thai Data (ข้อ 3: แก้ไขการดักจับตัวอักษรไทยล้อมรอบ)
 # PII Regex Patterns for Thai Data
-REGEX_THAI_NATIONAL_ID = re.compile(r"\b[1-9]\d{12}\b")
-REGEX_PHONE_NUMBER = re.compile(r"\b0[689]\d{8}\b|\b0[23457]\d{7}\b")
+REGEX_THAI_NATIONAL_ID = re.compile(r"(?<!\d)[1-9]\d{12}(?!\d)")
+# อัปเดตบรรทัดนี้: รองรับทั้งแบบมีขีด/ไม่มีขีด และดักจับตำแหน่งติดตัวหนังสือไทยได้ครอบคลุม
+REGEX_PHONE_NUMBER = re.compile(r"(?<!\d)0[689](?:-?\d){8}(?!\d)|(?<!\d)0[23457](?:-?\d){7}(?!\d)")
 REGEX_EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b")
 
 
@@ -51,7 +54,8 @@ def get_llm_client() -> Tuple[AsyncOpenAI, str]:
         base_url = "https://api.openai.com/v1"
         model = os.getenv("OPENAI_MODEL", "")
 
-    client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+    # Optional: ตั้งค่า timeout=25.0
+    client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=25.0)
     return client, model
 
 
@@ -75,13 +79,13 @@ def verify_and_clean_citations(
         if ref_num in valid_refs:
             found_refs.add(ref_num)
             return f"[{ref_num}]"
-        # หากอ้างอิงเลขที่ไม่มีจริง ตัดออกจากคำตอบ
         return ""
 
     # ตรวจจับ pattern [1], [2]
     cleaned_answer = re.sub(r"\[(\d+)\]", replace_citation, answer)
-    # ทำความสะอาดช่องว่างส่วนเกินที่เกิดจากการตัด citation
-    cleaned_answer = re.sub(r" +", " ", cleaned_answer)
+    
+    # ข้อ 4: ใช้ Regex ปรับช่องว่าง โดยรักษา Indent ของ Markdown list
+    cleaned_answer = re.sub(r"(?<=\S) {2,}", " ", cleaned_answer)
 
     ordered_sources = [valid_refs[ref_num] for ref_num in sorted(found_refs)]
     return cleaned_answer.strip(), ordered_sources
@@ -108,7 +112,6 @@ async def generate(req: GenerateRequest):
     if req.mode == "grounded":
         return await handle_grounded(req)
 
-    # Fallback เผื่อ mode ไม่ตรง
     return GenerateResponse(
         request_id=req.request_id,
         answer="ข้อผิดพลาด: ไม่รองรับโหมดการทำงานที่ระบุ",
@@ -123,8 +126,10 @@ async def generate(req: GenerateRequest):
 
 async def handle_passthrough(req: GenerateRequest) -> GenerateResponse:
     """mode passthrough: ไม่เรียก LLM ทำแค่ safety + จัด markdown ของ draft"""
+    start_time = time.perf_counter()
     draft = req.draft or ""
     safe_draft = mask_pii(draft)
+    latency = int((time.perf_counter() - start_time) * 1000)
 
     return GenerateResponse(
         request_id=req.request_id,
@@ -133,14 +138,14 @@ async def handle_passthrough(req: GenerateRequest) -> GenerateResponse:
         blocked=False,
         block_reason=None,
         model="none",
-        latency_ms=1,
+        latency_ms=latency,
         token_usage=TokenUsage(),
     )
 
 
 async def handle_explain_local(req: GenerateRequest) -> GenerateResponse:
     """mode explain_local: เรียก LLM สั้น ๆ แปลงผล classifier เป็นประโยคคน"""
-    client, model_name = get_llm_client()
+    start_time = time.perf_counter()
     temperature = float(os.getenv("GENERATION_TEMPERATURE", "0.3"))
     max_tokens = int(os.getenv("MAX_OUTPUT_TOKENS", "256"))
 
@@ -153,6 +158,9 @@ async def handle_explain_local(req: GenerateRequest) -> GenerateResponse:
     )
 
     try:
+        # ข้อ 1: ย้าย get_llm_client() เข้ามาไว้ภายใน try block
+        client, model_name = get_llm_client()
+        
         response = await client.chat.completions.create(
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
@@ -162,6 +170,7 @@ async def handle_explain_local(req: GenerateRequest) -> GenerateResponse:
 
         choice = response.choices[0]
         if choice.finish_reason == "content_filter":
+            latency = int((time.perf_counter() - start_time) * 1000)
             return GenerateResponse(
                 request_id=req.request_id,
                 answer="คำขอถูกระงับเนื่องจากติดเงื่อนไขความปลอดภัย",
@@ -169,7 +178,7 @@ async def handle_explain_local(req: GenerateRequest) -> GenerateResponse:
                 blocked=True,
                 block_reason="content_filter",
                 model=model_name,
-                latency_ms=1,
+                latency_ms=latency,
                 token_usage=TokenUsage(),
             )
 
@@ -183,6 +192,7 @@ async def handle_explain_local(req: GenerateRequest) -> GenerateResponse:
                 output=response.usage.completion_tokens,
             )
 
+        latency = int((time.perf_counter() - start_time) * 1000)
         return GenerateResponse(
             request_id=req.request_id,
             answer=safe_answer.strip(),
@@ -190,12 +200,13 @@ async def handle_explain_local(req: GenerateRequest) -> GenerateResponse:
             blocked=False,
             block_reason=None,
             model=model_name,
-            latency_ms=1,
+            latency_ms=latency,
             token_usage=usage,
         )
     except Exception as e:
+        # ข้อ 2: บันทึกลง Log แต่คืนค่า blocked=False, block_reason=None
         jlog(event="llm_error", mode="explain_local", error=str(e))
-        # Fallback ตอบแบบไม่พึ่ง LLM หากมีข้อผิดพลาด
+        latency = int((time.perf_counter() - start_time) * 1000)
         return GenerateResponse(
             request_id=req.request_id,
             answer=mask_pii(req.draft or "ระบบได้ทำการจำแนกประเภทคำร้องของคุณแล้ว"),
@@ -203,15 +214,17 @@ async def handle_explain_local(req: GenerateRequest) -> GenerateResponse:
             blocked=False,
             block_reason=None,
             model="fallback-none",
-            latency_ms=1,
+            latency_ms=latency,
             token_usage=TokenUsage(),
         )
 
 
 async def handle_grounded(req: GenerateRequest) -> GenerateResponse:
     """mode grounded: เรียก LLM เขียนคำตอบจาก contexts พร้อม [n] ที่ตรวจสอบได้จริง"""
-    # กรณี Contexts ว่างเปล่า
+    start_time = time.perf_counter()
+
     if not req.contexts:
+        latency = int((time.perf_counter() - start_time) * 1000)
         return GenerateResponse(
             request_id=req.request_id,
             answer="ขออภัย ไม่พบข้อมูลที่เพียงพอในคลังความรู้สำหรับตอบคำถามนี้",
@@ -219,15 +232,13 @@ async def handle_grounded(req: GenerateRequest) -> GenerateResponse:
             blocked=False,
             block_reason=None,
             model="none",
-            latency_ms=1,
+            latency_ms=latency,
             token_usage=TokenUsage(),
         )
 
-    client, model_name = get_llm_client()
     temperature = float(os.getenv("GENERATION_TEMPERATURE", "0.3"))
     max_tokens = int(os.getenv("MAX_OUTPUT_TOKENS", "1024"))
 
-    # Render Prompt Template จาก grounded.j2
     template = jinja_env.get_template("grounded.j2")
     rendered_prompt = template.render(
         contexts=req.contexts,
@@ -236,6 +247,9 @@ async def handle_grounded(req: GenerateRequest) -> GenerateResponse:
     )
 
     try:
+        # ข้อ 1: ย้าย get_llm_client() เข้ามาไว้ภายใน try block
+        client, model_name = get_llm_client()
+
         response = await client.chat.completions.create(
             model=model_name,
             messages=[{"role": "user", "content": rendered_prompt}],
@@ -245,6 +259,7 @@ async def handle_grounded(req: GenerateRequest) -> GenerateResponse:
 
         choice = response.choices[0]
         if choice.finish_reason == "content_filter":
+            latency = int((time.perf_counter() - start_time) * 1000)
             return GenerateResponse(
                 request_id=req.request_id,
                 answer="เนื้อหาถูกระงับเนื่องจากเงื่อนไขความปลอดภัยของระบบ",
@@ -252,16 +267,12 @@ async def handle_grounded(req: GenerateRequest) -> GenerateResponse:
                 blocked=True,
                 block_reason="content_filter",
                 model=model_name,
-                latency_ms=1,
+                latency_ms=latency,
                 token_usage=TokenUsage(),
             )
 
         raw_answer = choice.message.content or ""
-
-        # Citation Verification: ตรวจสอบและคัดกรองเลขอ้างอิง [n] ที่ไม่มีอยู่จริงออก
         cleaned_answer, cited_sources = verify_and_clean_citations(raw_answer, req.contexts)
-
-        # Mask PII
         final_answer = mask_pii(cleaned_answer)
 
         usage = TokenUsage()
@@ -271,6 +282,7 @@ async def handle_grounded(req: GenerateRequest) -> GenerateResponse:
                 output=response.usage.completion_tokens,
             )
 
+        latency = int((time.perf_counter() - start_time) * 1000)
         return GenerateResponse(
             request_id=req.request_id,
             answer=final_answer.strip(),
@@ -278,27 +290,20 @@ async def handle_grounded(req: GenerateRequest) -> GenerateResponse:
             blocked=False,
             block_reason=None,
             model=model_name,
-            latency_ms=1,
+            latency_ms=latency,
             token_usage=usage,
         )
     except Exception as e:
+        # ข้อ 2: บันทึกลง Log แต่คืนค่า blocked=False, block_reason=None
         jlog(event="llm_error", mode="grounded", error=str(e))
+        latency = int((time.perf_counter() - start_time) * 1000)
         return GenerateResponse(
             request_id=req.request_id,
             answer="เกิดข้อผิดพลาดในการเชื่อมต่อกับระบบประมวลผลภาษา กรุณาลองใหม่อีกครั้ง",
             sources=[],
-            blocked=True,
-            block_reason=str(e),
+            blocked=False,
+            block_reason=None,
             model="error",
-            latency_ms=1,
+            latency_ms=latency,
             token_usage=TokenUsage(),
         )
-
-    # grounded — ของจริงต้องตรวจ [n] ทุกตัวว่ามีอยู่ใน contexts จริง ตัวที่ไม่มีให้ตัดทิ้ง
-    cited = [c.source for c in req.contexts[:2]]
-    marks = " ".join(f"[{c.ref}]" for c in req.contexts[:2])
-    return GenerateResponse(
-        request_id=req.request_id,
-        answer=f"(ตัวอย่างจาก stub) ตอบจากเอกสารที่ค้นเจอ {marks}".strip(),
-        sources=cited, model="stub", latency_ms=1, token_usage=TokenUsage(),
-    )
