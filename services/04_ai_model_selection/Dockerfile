@@ -13,6 +13,7 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 COPY . .
+RUN python train.py
 
 # รันด้วยผู้ใช้ธรรมดา ไม่ใช่ root — ถ้าโดนเจาะจะเสียหายน้อยกว่า
 RUN useradd -m -u 10001 app && chown -R app:app /srv
