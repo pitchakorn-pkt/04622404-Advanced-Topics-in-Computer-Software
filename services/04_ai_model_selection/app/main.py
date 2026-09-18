@@ -1,15 +1,15 @@
 """04 AI Model Selection — General AI + Local AI
 
 STUB: /local/classify ยังเป็นของปลอม รอ dataset ก่อน
-/general แก้เป็นของจริงแล้ว — เรียก LLM ผ่านไลบรารี openai ชี้ base_url ไป Groq
-พร้อม fallback provider และเช็คโมเดลตอน startup ตาม CONTRACT §7
+/general แก้เป็นของจริงแล้ว — เรียก LLM ผ่านไลบรารี openai (AsyncOpenAI) ชี้ base_url ไป Groq
+พร้อม fallback provider, timeout, และเช็คโมเดลตอน startup ตาม CONTRACT §7
 """
 import logging
 import os
 import time
 
 from fastapi import FastAPI
-from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
+from openai import APIConnectionError, APIStatusError, APITimeoutError, AsyncOpenAI
 
 from .common import forward_headers, health_payload, jlog, request_id_middleware  # noqa: F401
 from .schemas import ClassifyRequest, EngineResult, GeneralRequest, TokenUsage
@@ -44,6 +44,10 @@ FALLBACK = os.environ.get("LLM_FALLBACK", "gemini")
 MAX_OUTPUT_TOKENS = int(os.environ.get("ENGINES_MAX_OUTPUT_TOKENS", "800"))
 MAX_INPUT_CHARS = 12000
 
+# router ให้เวลาโมดูลนี้รวมทั้งหมดประมาณ 30s (primary + fallback ถ้าจำเป็น)
+# ตั้ง timeout ต่อ provider ไว้ที่ 12s และไม่ retry ซ้ำ provider เดิม (retry ผ่าน fallback แทน)
+LLM_TIMEOUT_SECONDS = 12
+
 TASK_INSTRUCTION = {
     "qa": "ตอบคำถามให้กระชับ ตรงประเด็น",
     "summarize": "สรุปเนื้อหาที่ได้รับให้สั้นและครบใจความสำคัญ",
@@ -55,13 +59,18 @@ SYSTEM_PROMPT = (
     "ตอบเป็นภาษาเดียวกับที่ผู้ใช้ใช้ถาม ตอบให้ชัดเจนและนำไปใช้ได้จริง"
 )
 
-_clients: dict[str, OpenAI] = {}
+_clients: dict[str, AsyncOpenAI] = {}
 
 
-def _get_client(provider: str) -> OpenAI:
+def _get_client(provider: str) -> AsyncOpenAI:
     if provider not in _clients:
         cfg = PROVIDERS[provider]
-        _clients[provider] = OpenAI(base_url=cfg["base_url"], api_key=cfg["api_key"])
+        _clients[provider] = AsyncOpenAI(
+            base_url=cfg["base_url"],
+            api_key=cfg["api_key"],
+            timeout=LLM_TIMEOUT_SECONDS,
+            max_retries=0,
+        )
     return _clients[provider]
 
 
@@ -83,7 +92,7 @@ async def check_primary_model():
     cfg = PROVIDERS[PRIMARY]
     client = _get_client(PRIMARY)
     try:
-        client.chat.completions.create(
+        await client.chat.completions.create(
             model=cfg["model"],
             messages=[{"role": "user", "content": "ping"}],
             max_tokens=1,
@@ -120,7 +129,7 @@ async def general(req: GeneralRequest):
     started = time.monotonic()
     used_provider = PRIMARY
     try:
-        resp = _get_client(PRIMARY).chat.completions.create(
+        resp = await _get_client(PRIMARY).chat.completions.create(
             model=PROVIDERS[PRIMARY]["model"],
             messages=messages,
             max_tokens=MAX_OUTPUT_TOKENS,
@@ -129,7 +138,7 @@ async def general(req: GeneralRequest):
         jlog(event="general_primary_failed", provider=PRIMARY, error=str(e))
         used_provider = FALLBACK
         try:
-            resp = _get_client(FALLBACK).chat.completions.create(
+            resp = await _get_client(FALLBACK).chat.completions.create(
                 model=PROVIDERS[FALLBACK]["model"],
                 messages=messages,
                 max_tokens=MAX_OUTPUT_TOKENS,
