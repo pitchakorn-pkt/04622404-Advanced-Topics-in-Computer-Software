@@ -7,6 +7,26 @@
 
 ---
 
+## ทีม
+
+8 คน · 1 คนต่อ 1 โมดูล · หัวหน้าทีมดูแลโมดูล 08 และรวมงานทุกโมดูลเข้าด้วยกัน
+
+| โมดูล | ชื่อ–สกุล | รหัสนักศึกษา | GitHub | หน้าที่ | ผลที่วัดได้ |
+|---|---|---|---|---|---|
+| [01 Web App](services/01_web_app/) | Jakkrich Sriraksa | 116730462014-5 | [@jakkrich0912-web](https://github.com/jakkrich0912-web) | หน้าเว็บที่ผู้ใช้เห็น — แชท แหล่งอ้างอิง ประวัติ ปุ่ม 👍👎 แผงแสดงการตัดสินใจของ agent | |
+| [02 API Backend](services/02_api_backend/) | _(รอข้อมูล)_ | _(รอข้อมูล)_ | [@Chakamon02](https://github.com/Chakamon02) | ประตูหน้าบ้าน — ล็อกอิน ตรวจ input ประกอบ context แล้วส่งต่อให้ router | |
+| [03 AI Router](services/03_ai_router_agent/) | Patcharanat Budploy | 116730462038-4 | [@Patcharanat23](https://github.com/Patcharanat23) | สมองของระบบ — ตัดสินใจว่าคำถามไป route ไหน ด้วย 4 ชั้น guard → rules → classifier → LLM | |
+| [04 AI Engines](services/04_ai_model_selection/) | Pathumporn Jorrapong | 116730462009-5 | [@pathumpornjorrapong-ops](https://github.com/pathumpornjorrapong-ops) | General AI ผ่าน Groq พร้อม fallback · Local AI โมเดลจำแนก 8 หมวดที่เทรนเอง | |
+| [05 Retrieval](services/05_retrieval_knowledge/) | Suphakorn Nonthong | 116730462028-5 | [@SoSick41](https://github.com/SoSick41) | เตรียมคลังความรู้และค้นแบบ hybrid BM25 + vector — ที่มาของแหล่งอ้างอิงทุกข้อ | |
+| [06 LLM Generation](services/06_llm_generation/) | Phitphibul Phrompheak | 116730462030-1 | [@phitphibul67](https://github.com/phitphibul67) | เขียนคำตอบพร้อมเลขอ้างอิงที่ตรวจแล้ว · ด่านความปลอดภัยและปิดข้อมูลส่วนตัว | |
+| [07 Response / Log](services/07_response_logging/) | Jirapa Gongmool | 116730462008-7 | [@jirapa-gm](https://github.com/jirapa-gm) | ความจำของระบบ — เก็บบทสนทนา feedback และสรุปสถิติ | |
+| [08 Docker / Integration](08_monitoring_deployment/) | Pitchakorn Phuadkhunthod **(หัวหน้าทีม)** | 116730462035-0 | [@pitchakorn-pkt](https://github.com/pitchakorn-pkt) | รวม 7 โมดูลให้รันด้วยคำสั่งเดียว · Docker · smoke test และวัดผลทั้งระบบ · รีวิว PR | |
+
+branch ของแต่ละคนคือ `feature/<เลขโมดูล>-<ชื่อโมดูล>-<github username>` เช่น `feature/05-retrieval-SoSick41` ส่วนหัวหน้าทำงานผ่าน PR เข้า `develop`
+ช่อง "ผลที่วัดได้" เจ้าของแต่ละโมดูลเติมเองเมื่อมีตัวเลขจริง เช่น route accuracy, hit@5, % คำตอบที่มีอ้างอิงถูกต้อง
+
+---
+
 ## ระบบทำงานยังไง
 
 ```
@@ -30,23 +50,6 @@
 
 ทำแบบนี้เพราะการส่งทุกคำถามให้ LLM จำแนกทั้งช้าและเปลืองโควตาที่แชร์กันทั้งทีม
 `router` บันทึกไว้ทุกครั้งว่าจบที่ชั้นไหน แล้วคืนกลับมาใน `trace` เพื่อให้วัดได้ว่ากี่เปอร์เซ็นต์ไม่ต้องเรียก LLM เลย
-
----
-
-## สมาชิกและความรับผิดชอบ
-
-| โมดูล | ผู้รับผิดชอบ | branch | ผลที่วัดได้ |
-|---|---|---|---|
-| [01 Web App](services/01_web_app/) | [@jakkrich0912-web](https://github.com/jakkrich0912-web) | `feature/01-web-jakkrich0912-web` | |
-| [02 API Backend](services/02_api_backend/) | [@Chakamon02](https://github.com/Chakamon02) | `feature/02-api-Chakamon02` | |
-| [03 AI Router](services/03_ai_router_agent/) | [@Patcharanat23](https://github.com/Patcharanat23) | `feature/03-router-Patcharanat23` | |
-| [04 AI Engines](services/04_ai_model_selection/) | [@pathumpornjorrapong-ops](https://github.com/pathumpornjorrapong-ops) | `feature/04-engines-pathumpornjorrapong-ops` | |
-| [05 Retrieval](services/05_retrieval_knowledge/) | [@SoSick41](https://github.com/SoSick41) | `feature/05-retrieval-SoSick41` | |
-| [06 LLM Generation](services/06_llm_generation/) | [@phitphibul67](https://github.com/phitphibul67) | `feature/06-generation-phitphibul67` | |
-| [07 Response / Log](services/07_response_logging/) | [@jirapa-gm](https://github.com/jirapa-gm) | `feature/07-responselog-jirapa-gm` | |
-| [08 Docker / Integration](08_monitoring_deployment/) | [@pitchakorn-pkt](https://github.com/pitchakorn-pkt) | `develop` | |
-
-ช่อง "ผลที่วัดได้" เจ้าของแต่ละโมดูลเติมเองเมื่อมีตัวเลขจริง เช่น route accuracy, hit@5, % คำตอบที่มีอ้างอิงถูกต้อง
 
 ---
 
@@ -82,7 +85,7 @@ docker compose run --rm -u root retrieval chown -R 10001:10001 /data/index /mode
 
 ```bash
 git checkout develop && git pull
-git checkout -b feature/<เลขโมดูล>-<ชื่อ>-<github username>   # ดูชื่อ branch ในตารางด้านบน
+git checkout -b feature/<เลขโมดูล>-<ชื่อ>-<github username>   # รูปแบบชื่อ branch ดูใต้ตาราง "ทีม"
 docker compose up -d --wait                    # ขึ้นทั้งระบบ ของคนอื่นเป็น stub
 # แก้โค้ดใน services/<โฟลเดอร์ของคุณ>/app/ → reload ให้เองภายในไม่กี่วินาที ไม่ต้อง build ใหม่
 curl localhost:<port ของคุณ>/health            # ยิงทดสอบ service ตัวเองตรง ๆ
