@@ -1,17 +1,25 @@
 """04 AI Model Selection — General AI + Local AI
 
-STUB: /local/classify ยังเป็นของปลอม รอ dataset ก่อน
-/general แก้เป็นของจริงแล้ว — เรียก LLM ผ่านไลบรารี openai (AsyncOpenAI) ชี้ base_url ไป Groq
+/general — เรียก LLM ผ่านไลบรารี openai (AsyncOpenAI) ชี้ base_url ไป Groq
 พร้อม fallback provider, timeout, และเช็คโมเดลตอน startup ตาม CONTRACT §7
+/local/classify — เชื่อมกับโมเดล intent classifier ที่เทรนจาก data/intents.csv
+(TF-IDF word+char n-gram + LinearSVC, ผ่าน DoD ที่ CV accuracy 81.92%)
+โหลดจาก models/intent_v1.joblib แบบ lazy + cache ต่อ process
+สำคัญ: ต้องมี nlp_utils.py (โฟลเดอร์เดียวกับ train.py) อยู่บน sys.path ตอนรัน
+service นี้ด้วย — joblib.load ต้อง import nlp_utils เพื่อคืนค่า thai_tokenizer
+ที่ฝังอยู่ใน vectorizer ที่เซฟไว้ ถ้าหาไม่เจอ /local/classify จะพังเป็น 500
 """
 import logging
 import os
 import time
+from pathlib import Path
 
-from fastapi import FastAPI
+import joblib
+import numpy as np
+from fastapi import FastAPI, HTTPException
 from openai import APIConnectionError, APIStatusError, APITimeoutError, AsyncOpenAI
 
-from .common import forward_headers, health_payload, jlog, request_id_middleware  # noqa: F401
+from .common import error_body, forward_headers, health_payload, jlog, request_id_middleware  # noqa: F401
 from .schemas import ClassifyRequest, EngineResult, GeneralRequest, TokenUsage
 
 app = FastAPI(title="chuayduay · engines")
@@ -61,6 +69,28 @@ SYSTEM_PROMPT = (
 
 _clients: dict[str, AsyncOpenAI] = {}
 
+# ---- Local AI: intent classifier (train.py + data/intents.csv) ----
+LOCAL_MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "intent_v1.joblib"
+_local_model_bundle: dict | None = None
+
+
+def _get_local_model() -> dict:
+    """โหลดโมเดล intent classifier แบบ lazy + cache (โหลดครั้งเดียวต่อ process)"""
+    global _local_model_bundle
+    if _local_model_bundle is None:
+        _local_model_bundle = joblib.load(LOCAL_MODEL_PATH)
+    return _local_model_bundle
+
+
+def _softmax(scores: np.ndarray) -> np.ndarray:
+    """LinearSVC ไม่มี predict_proba — แปลง decision_function (raw score ต่อคลาส)
+    เป็น pseudo-probability ด้วย softmax เพื่อให้ยังคืน score/top_k ตาม schema เดิมได้
+    (ตัวเลขนี้ไม่ใช่ probability ที่ผ่านการ calibrate จริง ใช้เทียบลำดับ/ความมั่นใจสัมพัทธ์เท่านั้น)
+    """
+    shifted = scores - scores.max()
+    exp = np.exp(shifted)
+    return exp / exp.sum()
+
 
 def _get_client(provider: str) -> AsyncOpenAI:
     if provider not in _clients:
@@ -105,6 +135,25 @@ async def check_primary_model():
         )
         jlog(event="startup_model_check", provider=PRIMARY, model=cfg["model"],
              status="error", error=str(e))
+
+
+@app.on_event("startup")
+async def check_local_model():
+    """เช็คว่าโมเดล intent classifier (train.py) โหลดได้จริงตั้งแต่ startup
+    กันดีเลย์รอบแรกที่มีคนเรียก /local/classify และเห็น error เร็วถ้าลืม commit ไฟล์โมเดล
+    """
+    try:
+        bundle = _get_local_model()
+        jlog(event="startup_local_model_check", status="ok",
+             path=str(LOCAL_MODEL_PATH), classes=list(bundle["classifier"].classes_))
+    except Exception as e:  # noqa: BLE001
+        logger.warning(
+            "STARTUP WARNING: โหลดโมเดล intent classifier ไม่สำเร็จที่ %s — %s "
+            "(/local/classify จะตอบ 503 จนกว่าจะมีไฟล์โมเดล)",
+            LOCAL_MODEL_PATH, str(e),
+        )
+        jlog(event="startup_local_model_check", status="error",
+             path=str(LOCAL_MODEL_PATH), error=str(e))
 
 
 @app.get("/health")
@@ -170,15 +219,42 @@ async def general(req: GeneralRequest):
 
 @app.post("/local/classify", response_model=EngineResult)
 async def classify(req: ClassifyRequest):
-    # STUB: replace -- ยังไม่แก้ในขั้นนี้ รอ dataset + train.py ก่อน
     jlog(event="classify", text_len=len(req.text))
+    started = time.monotonic()
+
+    try:
+        bundle = _get_local_model()
+    except Exception as e:  # noqa: BLE001 — ครอบคลุมทั้งไฟล์หาไม่เจอและ unpickle ล้ม
+        # unpickle ล้มบ่อยสุดเพราะ nlp_utils.py (thai_tokenizer) หาไม่เจอตอน
+        # joblib.load — ดู docstring บนสุดของไฟล์นี้
+        jlog(event="classify_model_missing", error=str(e))
+        raise HTTPException(
+            status_code=503,
+            detail=error_body("MODEL_NOT_LOADED", "โมเดล intent classifier ยังไม่พร้อมใช้งาน"),
+        ) from e
+
+    vectorizer, clf = bundle["vectorizer"], bundle["classifier"]
+
+    X = vectorizer.transform([req.text])
+    scores = clf.decision_function(X)[0]  # LinearSVC ไม่มี predict_proba ใช้ raw score แทน
+    probs = _softmax(np.asarray(scores))
+
+    order = np.argsort(probs)[::-1]
+    classes = clf.classes_
+    top_label = str(classes[order[0]])
+    top_score = float(probs[order[0]])
+    top_k = [[str(classes[i]), float(probs[i])] for i in order[:3]]
+
+    latency_ms = int((time.monotonic() - started) * 1000)
+    jlog(event="classify_done", label=top_label, score=round(top_score, 4),
+         latency_ms=latency_ms)
+
     return EngineResult(
         engine="local_ai",
-        content="หมวด: การเชื่อมต่อเครือข่าย (0.87)",
-        data={"label": "connectivity", "score": 0.87,
-              "top_k": [["connectivity", 0.87], ["device_performance", 0.08]]},
+        content=f"หมวด: {top_label} ({top_score:.2f})",
+        data={"label": top_label, "score": top_score, "top_k": top_k},
         sources=[],
-        model="stub",
-        latency_ms=1,
+        model="intent_v1",
+        latency_ms=latency_ms,
         token_usage=TokenUsage(),
     )
