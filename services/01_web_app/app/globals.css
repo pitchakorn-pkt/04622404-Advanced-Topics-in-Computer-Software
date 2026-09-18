@@ -1,0 +1,43 @@
+html {
+  scroll-behavior: smooth;
+}
+
+.markdown p {
+  margin: 0 0 8px;
+}
+.markdown p:last-child {
+  margin-bottom: 0;
+}
+.markdown a {
+  color: #7bb3ff;
+}
+.markdown code {
+  background: #0f1115;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+.markdown pre {
+  background: #0f1115;
+  padding: 10px;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+.markdown pre code {
+  background: none;
+  padding: 0;
+}
+.markdown ul,
+.markdown ol {
+  margin: 4px 0 8px 20px;
+  padding: 0;
+}
+.markdown table {
+  border-collapse: collapse;
+  margin: 8px 0;
+}
+.markdown th,
+.markdown td {
+  border: 1px solid #2a2f3a;
+  padding: 4px 8px;
+}
