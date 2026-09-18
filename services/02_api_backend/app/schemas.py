@@ -3,7 +3,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from typing import Annotated, Literal
+from uuid import UUID
+
+from pydantic import BaseModel, Field, StringConstraints
 
 
 class LoginRequest(BaseModel):
@@ -12,9 +15,10 @@ class LoginRequest(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    session_id: str | None = None
-    message: str = Field(min_length=1, max_length=4000)
-    file_ids: list[str] = Field(default_factory=list)
+    session_id: UUID | None = None
+    message: Annotated[str, StringConstraints(strip_whitespace=True,
+                                              min_length=1, max_length=4000)]
+    file_ids: list[UUID] = Field(default_factory=list, max_length=10)
 
 
 class ChatResponse(BaseModel):
@@ -32,6 +36,6 @@ class ChatResponse(BaseModel):
 
 
 class FeedbackRequest(BaseModel):
-    message_id: str
-    rating: int
-    comment: str | None = None
+    message_id: UUID
+    rating: Literal[1, -1]
+    comment: Annotated[str, StringConstraints(max_length=2000)] | None = None
