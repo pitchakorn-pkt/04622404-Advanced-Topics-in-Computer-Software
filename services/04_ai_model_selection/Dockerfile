@@ -15,7 +15,9 @@ RUN pip install -r requirements.txt
 COPY . .
 
 # รันด้วยผู้ใช้ธรรมดา ไม่ใช่ root — ถ้าโดนเจาะจะเสียหายน้อยกว่า
-RUN useradd -m -u 10001 app && chown -R app:app /srv
+# /models เป็น volume hf_models ที่ใช้ร่วมกับ retrieval ถ้า engines ขึ้นก่อนแล้วไม่มีจุดนี้ใน image
+# docker จะสร้าง volume เป็นของ root แล้ว retrieval เขียนแคชโมเดลไม่ได้
+RUN useradd -m -u 10001 app && mkdir -p /models && chown -R app:app /srv /models
 USER app
 
 EXPOSE 8000
