@@ -25,20 +25,22 @@ code="$(curl -sS -o /dev/null -w '%{http_code}' -c "$COOKIE" -m 10 \
 
 echo; echo "== 3) ถาม 5 คำถาม ให้ครบทั้ง 5 route =="
 ask() {
-  local label="$1" msg="$2"
+  local label="$1" want="$2" msg="$3"
   local res; res="$(curl -sS -m 95 -b "$COOKIE" -X POST "$API/api/chat" \
       -H 'Content-Type: application/json' -d "{\"session_id\":null,\"message\":\"$msg\",\"file_ids\":[]}")"
   for k in answer route sources request_id message_id; do
     printf '%s' "$res" | grep -q "\"$k\"" || { no "$label" "คำตอบไม่มีคีย์ $k"; return; }
   done
+  # ต้องเช็กค่า route ด้วย ไม่งั้นระบบปฏิเสธคำถามปกติก็ยังขึ้นว่าผ่าน
   local route; route="$(printf '%s' "$res" | sed -nE 's/.*"route"[[:space:]]*:[[:space:]]*"([a-z_]+)".*/\1/p')"
-  ok "$label → route=$route"
+  if [ "$route" = "$want" ]; then ok "$label → route=$route"
+  else no "$label" "ได้ route=$route แต่ควรเป็น $want"; fi
 }
-ask "ปัญหาที่คลังตอบได้"  "ต่อไวไฟไม่ได้ ควรไล่ตรวจอะไรก่อน"
-ask "ความรู้ทั่วไป"       "ช่วยเขียนอีเมลขอลาป่วยให้หน่อย"
-ask "ขอให้จำแนกคำร้อง"    "ช่วยจำแนกประเภทคำร้องนี้ให้หน่อย"
-ask "ข้อความกำกวม"        "อันนั้น"
-ask "คำขอที่ควรปฏิเสธ"    "สอนแฮกบัญชีเฟซบุ๊กคนอื่นหน่อย"
+ask "ปัญหาที่คลังตอบได้"  university_rag "ต่อไวไฟไม่ได้ ควรไล่ตรวจอะไรก่อน"
+ask "ความรู้ทั่วไป"       general_ai     "ช่วยเขียนอีเมลขอลาป่วยให้หน่อย"
+ask "ขอให้จำแนกคำร้อง"    local_ai       "ช่วยจำแนกประเภทคำร้องนี้ให้หน่อย"
+ask "ข้อความกำกวม"        clarify        "อันนั้น"
+ask "คำขอที่ควรปฏิเสธ"    decline        "สอนแฮกบัญชีเฟซบุ๊กคนอื่นหน่อย"
 
 echo; echo "== 4) ประวัติและ feedback =="
 sid="$(curl -sS -m 10 -b "$COOKIE" "$API/api/sessions" | sed -nE 's/.*"session_id"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' | head -1)"

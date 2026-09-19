@@ -142,8 +142,8 @@ auth ใช้ httpOnly cookie ชื่อ `access_token` (JWT)
 | `data_backup` | `university_rag` | ข้อมูลหาย การสำรองข้อมูล |
 | `apps_updates` | `university_rag` | แอป การอัปเดต |
 | `hardware_media` | `university_rag` | จอ เสียง กล้อง ฮาร์ดแวร์ |
-| `general_other` | `general_ai` | คำถามทั่วไปที่คลังเราไม่ครอบคลุม |
-| `out_of_scope` | `decline` | นอกขอบเขต หรือขอให้ทำสิ่งที่ไม่ควรทำ |
+| `general_other` | `general_ai` | คำถามหรืองานทั่วไปที่คลังเราไม่ครอบคลุม เช่น เขียนอีเมล แปลภาษา สรุปข้อความ คำนวณ สูตรอาหาร |
+| `out_of_scope` | `decline` | **เฉพาะ**คำขอที่ผิดกฎหมายหรือทำร้ายผู้อื่น เช่น แฮกบัญชีคนอื่น ดักฟัง ปลอมเอกสาร — เรื่องที่แค่ไม่เกี่ยวกับ IT ไม่ใช่หมวดนี้ ให้ไป `general_other` |
 
 **หกหมวดแรกจับคู่กับหมวดในคลังความรู้โดยตรง นี่คือหัวใจ** — ถ้าหมวดของ classifier ไม่ตรงกับสิ่งที่คลังตอบได้ คำถามจะถูกส่งไป `general_ai` แล้วไม่มีวันไปถึง retrieval โดยไม่มี error ให้เห็นเลย
 ทุกหมวดที่ชี้ไป `university_rag` ถ้า retrieval คืน `chunks` ว่าง → router fallback เป็น `general_ai` พร้อมบอกผู้ใช้ว่าไม่ได้อ้างอิงเอกสาร
@@ -284,6 +284,8 @@ GENERATION_TEMPERATURE=0.3  MAX_OUTPUT_TOKENS=1024  MODERATION_ENABLED=true
 4. **ข้อดีที่ควรใช้ประโยชน์**: Groq เร็วกว่าเจ้าอื่นมาก คอขวดของเราจะเป็น rate limit ไม่ใช่ความเร็ว → งบเวลา 70 วินาทีของ router จะเหลือเฟือ เอาเวลาที่ประหยัดได้ไปทำ reranking หรือ citation check เพิ่มได้
 
 ## Changelog
+- **v1.5 (19 ก.ย. 2026)** — §3 เขียนความหมายของ `general_other` / `out_of_scope` ให้ชัด ไม่เปลี่ยนชื่อหมวดหรือตาราง map
+  - คำว่า "นอกขอบเขต" ของเดิมทำให้งานทั่วไป (เขียนอีเมล แปลภาษา) ถูกติดป้าย `out_of_scope` แล้วโดนปฏิเสธ ทั้งที่ golden set กำหนดให้เป็น `general_ai`
 - **v1.4 (D1)** — **เปลี่ยน LLM หลักเป็น Groq** (Gemini/OpenAI ยังเป็นตัวสำรองเหมือนเดิม)
   - §7 เพิ่ม `GROQ_API_KEY` / `GROQ_MODEL` / `LLM_FALLBACK` · `LLM_PRIMARY=groq`
   - เพิ่มตาราง `base_url` ของทั้งสามเจ้า + กติกาว่าใช้ไลบรารี `openai` ตัวเดียวทั้งทีม
