@@ -26,6 +26,12 @@ ROUTE_VALUES = ("general_ai", "university_rag", "local_ai", "clarify", "decline"
 # เหลือเวลาน้อยกว่านี้ไม่ต้องลองเจ้าสำรองแล้ว ยิงไปก็ timeout ซ้ำเปล่า ๆ
 MIN_LLM_SLICE = 1.0
 
+# gpt-oss-120b ใช้ token ไปกับการ "คิด" ก่อนตอบด้วย ไม่ใช่แค่ความยาวคำตอบ
+# ตั้งน้อยเกินแล้วโมเดลคิดไม่จบ Groq จะตอบ 400 json_validate_failed แล้วเราตกไป clarify
+# ทั้งที่ตัดสินใจได้ (เจอจากการวัดจริงด้วย key: ที่ 300 ล้ม ที่ 1024 ใช้จริง ~430 token)
+ROUTE_MAX_TOKENS = 1024
+REWRITE_MAX_TOKENS = 512
+
 SYSTEM_PROMPT = """คุณคือชั้นตัดสินใจของผู้ช่วยภาษาไทยชื่อ "ช่วยด้วย" ที่ช่วยแก้ปัญหาการใช้งานมือถือและคอมพิวเตอร์
 หน้าที่ของคุณคือเลือกเส้นทางให้คำถาม ไม่ใช่ตอบคำถาม
 
@@ -158,7 +164,7 @@ async def decide_route(query: str, history: list[dict], timeout: float = T_LLM,
 
     result = await _chat([{"role": "system", "content": SYSTEM_PROMPT},
                           {"role": "user", "content": "\n\n".join(parts)}],
-                         timeout=timeout, max_tokens=300)
+                         timeout=timeout, max_tokens=ROUTE_MAX_TOKENS)
     if not result:
         return None
 
@@ -197,7 +203,7 @@ async def rewrite_query(query: str, history: list[dict],
         [{"role": "system", "content": REWRITE_SYSTEM},
          {"role": "user", "content": f"บทสนทนาก่อนหน้า:\n{_history_block(history)}\n\n"
                                      f"ข้อความล่าสุดของผู้ใช้:\n{query}"}],
-        timeout=timeout, max_tokens=200)
+        timeout=timeout, max_tokens=REWRITE_MAX_TOKENS)
     if not result:
         return None, (0, 0)
 

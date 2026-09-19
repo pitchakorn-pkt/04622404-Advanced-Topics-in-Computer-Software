@@ -67,7 +67,7 @@ timeout ต่อ hop ใน CONTRACT §0 เป็น "เพดาน" — เ
 ```bash
 python -m pytest tests -q                              # 78 เคส ครอบคลุมชั้น 0-3 และ fallback ทุกเส้น
 python tests/eval_routing.py --offline                 # เฉพาะชั้น 0-1 ไม่ยิง service ไหนเลย
-ENGINES_URL=http://localhost:8004 python tests/eval_routing.py   # cascade เต็ม (ต้องมี engines + API key)
+ENGINES_URL=http://localhost:8004 python tests/eval_routing.py --delay 5   # cascade เต็ม (ต้องมี engines + API key)
 ```
 
 `tests/routing_cases.jsonl` มี 40 ข้อ ครบทั้ง 5 route (rag 16 · general 8 · local 4 · clarify 6 · decline 6)
@@ -75,15 +75,17 @@ ENGINES_URL=http://localhost:8004 python tests/eval_routing.py   # cascade เ�
 
 ### ผลที่วัดได้
 
-| ชุดที่วัด | route accuracy | ตัดสินใจโดยไม่เรียก LLM | เวลาตัดสินใจเฉลี่ย |
-|---|---|---|---|
-| ชั้น 0-1 เท่านั้น (`--offline`) | 25/40 = 62.5% | 24/40 (60%) | 8 ms |
-| cascade เต็ม 4 ชั้น (วัดโดย 08 ตอนรีวิว PR #12 รวมกับ #13/#14) | 26/40 = 65% | | |
+| ชุดที่วัด | route accuracy | หมายเหตุ |
+|---|---|---|
+| **cascade เต็ม 4 ชั้น มี Groq key จริง** | **37/40 = 92.5%** ✅ ผ่านเกณฑ์ 85% | วัดโดย 08 บน develop + #12 + #14 + ข้อมูลใหม่ของ 04 · `make smoke` 14/14 |
+| ชั้น 0-1 เท่านั้น (`--offline`) | 25/40 = 62.5% | ตัดสินใจได้เอง 24/40 (60%) เฉลี่ย 8 ms และไม่มี misroute |
 
-ตัวเลข 65% ยังไม่ถึงเกณฑ์ DoD 85% — สาเหตุอยู่นอกโมดูลนี้ และบันทึกไว้เพื่อไม่ให้หายไป
-`general_ai` ได้ 0/8 เพราะ 6 ข้อ classifier ของ 04 ตอบ `out_of_scope` ด้วยความมั่นใจเกิน 0.75
-(เช่น "ช่วยเขียนอีเมลขอลาป่วยให้หน่อย" ได้ 0.89) router จึง `decline` ตามตาราง CONTRACT §3 ซึ่งถูกต้องแล้ว
-ต้องแก้ที่ข้อมูลเทรนของ 04 · อีก 2 ข้อตกไป `clarify` เพราะเครื่องที่วัดยังไม่มี LLM key
+3 ข้อที่ยังไม่ผ่านในรอบ 92.5% (r05, g07, d06) มาจากสาเหตุเดียวกันหมด คือ `max_tokens` ของชั้น 3 ต่ำเกิน
+`openai/gpt-oss-120b` ใช้ token ไปกับการคิดก่อนตอบ พอตั้งไว้ 300 โมเดลคิดไม่จบ Groq ตอบ 400
+แล้วเราตกไป `clarify` ทั้งที่ตัดสินใจได้ — แก้เป็น 1024 (rewrite 512) แล้ว **รอวัดซ้ำเพื่อยืนยัน**
+
+**ตอนวัดเลขจริงให้ใส่ `--delay 5`** free tier ของ Groq จำกัด 8,000 token/นาที
+ยิง 40 ข้อติดกันจะชน rate limit แล้วได้ตัวเลขต่ำกว่าความจริง (เคยวัดได้ 35/40 ด้วยเหตุนี้)
 
 ในโหมด offline ไม่มีข้อไหน misroute เลย — 15 ข้อที่ยังไม่ตรงคือข้อที่ชั้น 0-1 ไม่ตัดสินใจ
 แล้วตกไป `clarify` ตามค่า default ซึ่งเป็นพฤติกรรมที่ตั้งใจ (ชั้น rules ต้องแม่น ไม่ใช่ตอบทุกข้อ)
@@ -136,8 +138,9 @@ curl -s localhost:8003/route -H 'Content-Type: application/json' -d '{
 
 ## Definition of Done
 
-- [ ] route accuracy ≥ 85% บน 40 ข้อ (รอวัดด้วย cascade เต็ม)
-- [x] ครบ 5 route ทำงานกับ stub — ยังต้องทดสอบกับของจริงอีกรอบ
+- [x] route accuracy ≥ 85% บน 40 ข้อ — **วัดได้ 37/40 = 92.5%** (ดูตารางด้านบน)
+- [x] ครบ 5 route ทำงานทั้งกับ stub และกับของจริง (`make smoke` 14/14 เช็กค่า route ทุกข้อ)
 - [x] ปิด 05 แล้วระบบยังตอบได้ พร้อมบอกผู้ใช้ว่าไม่ได้อ้างอิงเอกสาร (`test_retrieval_down_still_answers_with_warning`)
 - [x] log แต่ละ request บอกชั้นที่ตัดสินใจ + เวลาต่อ hop (`decided_at_layer` + `trace.steps`)
-- [ ] เส้น rag ที่ช้าที่สุดที่วัดได้ ยังต่ำกว่า 70 วินาที (รอวัดกับ 05/06 ของจริง)
+- [ ] เส้น rag ที่ช้าที่สุดที่วัดได้ ยังต่ำกว่า 70 วินาที — รอบันทึกตัวเลขจากการวัดกับของจริง
+      (ดูได้จาก `latency_ms` และ `trace.steps` ใน log ของ request เส้น `university_rag`)

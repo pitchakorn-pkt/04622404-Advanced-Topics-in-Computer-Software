@@ -56,10 +56,14 @@ def go_offline() -> None:
     llm.decide_route = _no_llm
 
 
-async def run(cases: list[dict]) -> list[dict]:
+async def run(cases: list[dict], delay: float = 0.0) -> list[dict]:
     results = []
     async with httpx.AsyncClient() as client:
-        for case in cases:
+        for index, case in enumerate(cases):
+            # free tier ของ Groq จำกัด token ต่อนาที ยิง 40 ข้อติดกันจะชน limit
+            # แล้วผลที่ได้จะต่ำกว่าความจริง — เว้นจังหวะด้วย --delay ตอนวัดเลขจริง
+            if delay and index:
+                await asyncio.sleep(delay)
             budget, steps = Budget(), Steps()
             started = time.perf_counter()
             decision = await cascade.decide(case["query"], case.get("history", []),
@@ -136,13 +140,15 @@ def main() -> int:
     parser.add_argument("--offline", action="store_true",
                         help="ปิดชั้น 2 และ 3 — ใช้ดูว่าตาราง keyword เดี่ยว ๆ ทำได้แค่ไหน")
     parser.add_argument("--json", dest="json_out", help="เขียนผลดิบเป็นไฟล์ JSON")
+    parser.add_argument("--delay", type=float, default=0.0,
+                        help="เว้นจังหวะระหว่างข้อ (วินาที) กันชน rate limit ของ Groq ตอนวัดเลขจริง")
     args = parser.parse_args()
 
     if args.offline:
         go_offline()
 
     cases = load_cases(Path(args.cases))
-    results = asyncio.run(run(cases))
+    results = asyncio.run(run(cases, delay=args.delay))
     accuracy = report(results, args.offline)
 
     if args.json_out:
