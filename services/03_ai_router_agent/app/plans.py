@@ -19,7 +19,7 @@ from . import clients, guard, llm
 from .budget import Budget, Steps
 from .cascade import Decision
 from .common import jlog
-from .config import T_ENGINES, T_GENERATION, T_LLM, T_RETRIEVAL, TOP_K
+from .config import SUMMARIZE_CUES, T_ENGINES, T_GENERATION, T_LLM, T_RETRIEVAL, TOP_K
 
 CLARIFY_TEMPLATE = (
     "ขอรายละเอียดเพิ่มอีกนิดครับ — ช่วยบอกหน่อยว่าใช้อุปกรณ์อะไร (มือถือ/โน้ตบุ๊ก/คอมพิวเตอร์) "
@@ -41,8 +41,6 @@ SERVICE_BUSY = (
     "ตอนนี้ระบบผู้ช่วยตอบกลับไม่ได้ชั่วคราวครับ รบกวนลองใหม่อีกครั้งในอีกสักครู่ "
     "ถ้ายังไม่ได้แนะนำให้ติดต่อเจ้าหน้าที่ผู้ดูแลระบบโดยตรง"
 )
-
-SUMMARIZE_CUES = ("สรุป", "ย่อความ", "summarize", "summary", "ใจความสำคัญ")
 
 
 @dataclass

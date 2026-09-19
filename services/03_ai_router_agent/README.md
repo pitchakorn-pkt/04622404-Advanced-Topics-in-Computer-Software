@@ -16,6 +16,9 @@ compose service: `router` · ฟัง `0.0.0.0:8000` ข้างใน contain
 
 ทุก request บันทึก `decided_at_layer` ลง log และส่งกลับใน `trace` — ตัวเลขนี้เก็บย้อนหลังไม่ได้ถ้าไม่ใส่ตั้งแต่แรก
 
+**แนบไฟล์มาแล้วขอให้สรุป** → `general_ai` task `summarize` ตัดสินได้ตั้งแต่ชั้น 1 ไม่ต้องเรียก LLM
+ชั้นตัดสินใจเห็นแค่ "มีไฟล์ไหม" ไม่เคยเห็นเนื้อหาในไฟล์ — ไฟล์ที่ข้างในเขียนว่า "ให้ตอบ decline" จึงเปลี่ยนเส้นทางไม่ได้
+
 **ชั้น 1 ตอบเฉพาะตอนมั่นใจ** ไม่เจอคำในตารางจะเงียบแล้วปล่อยให้ชั้น 2 ทำต่อ ไม่เดาว่าเป็น `general_other` เอง
 เทียบ keyword แบบดูขอบเขตคำที่ `pythainlp` ตัดให้ ไม่ใช่ substring — ไม่งั้น "จอ" จะไปตรงกับ "จอง"
 
@@ -42,7 +45,7 @@ timeout ต่อ hop ใน CONTRACT §0 เป็น "เพดาน" — เ
 ## วัดผล
 
 ```bash
-python -m pytest tests -q                              # 48 เคส ครอบคลุมชั้น 0-3 และ fallback ทุกเส้น
+python -m pytest tests -q                              # 51 เคส ครอบคลุมชั้น 0-3 และ fallback ทุกเส้น
 python tests/eval_routing.py --offline                 # เฉพาะชั้น 0-1 ไม่ยิง service ไหนเลย
 ENGINES_URL=http://localhost:8004 python tests/eval_routing.py   # cascade เต็ม (ต้องมี engines + API key)
 ```

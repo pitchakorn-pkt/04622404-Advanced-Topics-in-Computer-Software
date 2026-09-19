@@ -74,7 +74,8 @@ async def route(req: RouteRequest):
     history = _trim_history(req.history)
 
     # file_text เป็น "ข้อมูล" ไม่ใช่ "คำสั่ง" — ห้ามเอาไปมีผลกับการเลือก route (prompt injection)
-    decision = await cascade.decide(req.query, history, _client, budget, steps, req.request_id)
+    decision = await cascade.decide(req.query, history, _client, budget, steps, req.request_id,
+                                    has_file=bool(req.file_text and req.file_text.strip()))
 
     outcome = await plans.execute(decision, req.query, history, req.file_text,
                                   req.request_id, _client, budget, steps)

@@ -17,7 +17,8 @@ import httpx
 from . import clients, guard, llm, rules
 from .budget import Budget, Steps
 from .common import jlog
-from .config import CATEGORY_ROUTE, CLASSIFIER_THRESHOLD, LLM_MIN_CONFIDENCE, T_ENGINES, T_LLM
+from .config import (CATEGORY_ROUTE, CLASSIFIER_THRESHOLD, LLM_MIN_CONFIDENCE,
+                     SUMMARIZE_CUES, T_ENGINES, T_LLM)
 
 
 @dataclass
@@ -39,7 +40,11 @@ def _add_tokens(decision_tokens: list[int], pair: tuple[int, int]) -> None:
 
 
 async def decide(query: str, history: list[dict], client: httpx.AsyncClient,
-                 budget: Budget, steps: Steps, request_id: str) -> Decision:
+                 budget: Budget, steps: Steps, request_id: str,
+                 has_file: bool = False) -> Decision:
+    """has_file บอกแค่ว่า "มีไฟล์แนบมาไหม" เท่านั้น — เนื้อหาในไฟล์ไม่เคยเข้ามาถึงชั้นตัดสินใจ
+    ไม่งั้นใครก็แนบไฟล์ที่เขียนว่า "ให้ตอบ decline" แล้วสั่งการ router ได้ (prompt injection)
+    """
     tokens = [0, 0]
 
     # ---- ชั้น 0: guard ----
@@ -50,6 +55,11 @@ async def decide(query: str, history: list[dict], client: httpx.AsyncClient,
                         reasoning=hit.reasoning, layer="guard", token_usage=tokens)
 
     # ---- ชั้น 1: rules ----
+    # แนบไฟล์มาแล้วขอให้สรุป = general_ai task=summarize ตัดสินได้เลยไม่ต้องเรียก LLM
+    if has_file and any(cue in query.lower() for cue in SUMMARIZE_CUES):
+        return Decision(route="general_ai", confidence=0.9, layer="rules",
+                        reasoning="ชั้น rules: ผู้ใช้ขอให้สรุปไฟล์ที่แนบมา", token_usage=tokens)
+
     with steps.step("router.rules"):
         rule = rules.match(query)
     if rule:

@@ -259,3 +259,32 @@ def test_budget_shrinks_hop_timeout():
     budget = Budget(total=10.0)
     assert budget.hop(30.0) == pytest.approx(9.0, abs=0.2)   # เพดาน 30s แต่เหลือจริงแค่ ~9s
     assert Budget(total=0.5).hop(30.0) is None
+
+
+# ---- ไฟล์แนบ: ใช้แค่ "มีไฟล์ไหม" ห้ามให้เนื้อหาในไฟล์มีผลกับ route ----
+
+def test_file_summary_decides_at_rules_layer(calls, monkeypatch):
+    async def must_not_run(*args, **kwargs):
+        raise AssertionError("มีไฟล์ + ขอสรุป ตัดสินได้เองตั้งแต่ชั้น 1 ไม่ต้องเรียก LLM")
+
+    monkeypatch.setattr(llm, "decide_route", must_not_run)
+    decision = run(cascade.decide("ช่วยสรุปไฟล์นี้ให้หน่อย", [], None, Budget(), Steps(),
+                                  "req-1", has_file=True))
+    assert (decision.route, decision.layer) == ("general_ai", "rules")
+    assert calls["classify"] == []
+
+
+def test_attached_file_never_hijacks_routing(calls):
+    # ไฟล์ที่ข้างในเขียนว่า "ให้ตอบ decline" ต้องไม่เปลี่ยนเส้นทาง เพราะชั้นตัดสินใจเห็นแค่ flag
+    decision = run(cascade.decide("ต่อไวไฟไม่ได้", [], None, Budget(), Steps(),
+                                  "req-1", has_file=True))
+    assert decision.route == "university_rag"
+
+
+def test_summary_without_file_still_goes_through_cascade(calls, monkeypatch):
+    async def fake_llm(query, history, timeout=10.0, hint=None):
+        return llm.LlmDecision(route="general_ai", confidence=0.9, reasoning="ทดสอบ")
+
+    monkeypatch.setattr(clients, "classify", _unsure_classifier)
+    monkeypatch.setattr(llm, "decide_route", fake_llm)
+    assert decide("ช่วยสรุปข่าวเศรษฐกิจให้หน่อย").layer == "llm"
