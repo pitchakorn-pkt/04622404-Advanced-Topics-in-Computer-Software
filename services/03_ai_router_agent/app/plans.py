@@ -140,7 +140,10 @@ async def _rag(decision: Decision, query: str, history: list[dict], file_text: s
         fallback.token_usage[1] += out.token_usage[1]
         for engine in out.engines_used:
             fallback.use(engine)
-        fallback.answer = fallback.answer.rstrip() + NO_DOC_NOTE
+        if "engines" in fallback.engines_used:
+            # ต่อท้ายเฉพาะตอนที่ได้คำตอบจากความรู้ทั่วไปมาจริง ๆ
+            # ถ้า 04 ล่มด้วยจะเหลือแค่ข้อความว่าระบบไม่ว่าง การบอกว่า "ไม่ได้อ้างอิงเอกสาร" ตรงนั้นไม่มีความหมาย
+            fallback.answer = fallback.answer.rstrip() + NO_DOC_NOTE
         return fallback
 
     # เลข ref เป็นหน้าที่ของ router — 06 เอาไปใช้ตรง ๆ จะได้ไม่มีเลขชนกัน

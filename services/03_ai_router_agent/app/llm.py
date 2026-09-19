@@ -102,7 +102,9 @@ def _history_block(history: list[dict], limit: int = 6) -> str:
 async def _chat(messages: list[dict], timeout: float,
                 max_tokens: int) -> tuple[str, str, tuple[int, int]] | None:
     """ยิงไปที่ provider หลักก่อน ล้มแล้วค่อยลองตัวสำรอง — คืน (ข้อความ, ชื่อโมเดล, token)"""
-    for provider in (LLM_PRIMARY, LLM_FALLBACK):
+    # ตั้ง LLM_FALLBACK เป็นเจ้าเดียวกับตัวหลักได้ ไม่ต้องยิงซ้ำเจ้าเดิมสองรอบให้เสียเวลาในงบ
+    providers = [LLM_PRIMARY] + ([LLM_FALLBACK] if LLM_FALLBACK != LLM_PRIMARY else [])
+    for provider in providers:
         pair = _client(provider)
         if not pair:
             continue

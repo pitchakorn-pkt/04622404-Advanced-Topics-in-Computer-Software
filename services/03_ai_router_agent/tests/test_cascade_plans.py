@@ -288,3 +288,19 @@ def test_summary_without_file_still_goes_through_cascade(calls, monkeypatch):
     monkeypatch.setattr(clients, "classify", _unsure_classifier)
     monkeypatch.setattr(llm, "decide_route", fake_llm)
     assert decide("ช่วยสรุปข่าวเศรษฐกิจให้หน่อย").layer == "llm"
+
+
+def test_no_doc_note_only_when_general_ai_actually_answered(calls, monkeypatch):
+    async def nothing_found(client, request_id, query, top_k, timeout, filters=None):
+        return []
+
+    async def engines_down(client, request_id, query, history, timeout, task="qa", file_text=None):
+        raise clients.HopError("engines.general", "HTTP 503")
+
+    monkeypatch.setattr(clients, "search", nothing_found)
+    monkeypatch.setattr(clients, "general", engines_down)
+    out = plan("university_rag")
+    # ค้นไม่เจอ + 04 ล่มด้วย -> เหลือแค่ข้อความว่าระบบไม่ว่าง
+    # การต่อท้ายว่า "ไม่ได้อ้างอิงเอกสาร" ตรงนี้จะทำให้ผู้ใช้งงว่าตกลงตอบอะไรมา
+    assert "ไม่ได้อ้างอิงเอกสาร" not in out.answer
+    assert out.answer.startswith("ตอนนี้ระบบผู้ช่วยตอบกลับไม่ได้ชั่วคราว")
