@@ -68,17 +68,33 @@ def test_request_id_header_is_echoed(client):
     assert resp.headers["X-Request-ID"] == "trace-me"
 
 
-def test_internal_error_still_answers_with_200(client, monkeypatch):
+def test_unexpected_error_uses_contract_error_shape(client, monkeypatch):
     async def boom(*args, **kwargs):
         raise RuntimeError("อะไรสักอย่างพังโดยไม่ได้ตั้งใจ")
 
     monkeypatch.setattr(cascade, "decide", boom)
     resp = client.post("/route", json=API_PAYLOAD)
-    # 02 แปลง 5xx ทุกแบบเป็น 502 แล้วผู้ใช้เห็นหน้าจอว่าง — ต้องตอบ 200 พร้อมข้อความขอโทษแทน
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["route"] == "clarify"
-    assert body["answer"]
+    # hop ล่มเรามี fallback ให้แล้ว ส่วน error ที่ไม่ได้คาดไว้ต้องโผล่ออกมาเป็น 500 ตาม CONTRACT ข้อ 0
+    # กลบเป็น 200 แล้วจะกลายเป็นบั๊กเงียบที่ไม่มีใครเห็นตอนรวมงาน
+    assert resp.status_code == 500
+    err = resp.json()["error"]
+    assert err["code"] == "INTERNAL_ERROR"
+    assert err["service"] == "router" and err["request_id"]
+
+
+def test_validation_error_uses_contract_error_shape(client):
+    resp = client.post("/route", json={"request_id": "1"})      # ส่ง field ไม่ครบ
+    assert resp.status_code == 422
+    err = resp.json()["error"]
+    # FastAPI ตอบ {"detail": [...]} มาเอง ซึ่งคนละรูปแบบกับที่ทั้งทีมตกลงกันไว้
+    assert err["code"] == "VALIDATION_ERROR"
+    assert err["service"] == "router"
+
+
+def test_content_type_declares_utf8(client):
+    resp = client.post("/route", json=API_PAYLOAD)
+    assert resp.headers["content-type"] == "application/json; charset=utf-8"
+    assert "ขอ" in resp.text or "ระบบ" in resp.text          # ภาษาไทยต้องไม่เพี้ยน
 
 
 def test_empty_query_is_rejected_gracefully(client):

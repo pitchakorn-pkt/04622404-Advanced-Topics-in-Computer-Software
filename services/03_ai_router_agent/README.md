@@ -61,7 +61,7 @@ timeout ต่อ hop ใน CONTRACT §0 เป็น "เพดาน" — เ
 ## วัดผล
 
 ```bash
-python -m pytest tests -q                              # 58 เคส ครอบคลุมชั้น 0-3 และ fallback ทุกเส้น
+python -m pytest tests -q                              # 71 เคส ครอบคลุมชั้น 0-3 และ fallback ทุกเส้น
 python tests/eval_routing.py --offline                 # เฉพาะชั้น 0-1 ไม่ยิง service ไหนเลย
 ENGINES_URL=http://localhost:8004 python tests/eval_routing.py   # cascade เต็ม (ต้องมี engines + API key)
 ```
@@ -80,6 +80,24 @@ ENGINES_URL=http://localhost:8004 python tests/eval_routing.py   # cascade เ�
 แล้วตกไป `clarify` ตามค่า default ซึ่งเป็นพฤติกรรมที่ตั้งใจ (ชั้น rules ต้องแม่น ไม่ใช่ตอบทุกข้อ)
 
 **แก้ตาราง keyword ใน `app/rules.py` ทีไร ต้องรันชุดนี้ใหม่ทุกครั้ง** เพิ่มทีละคำแล้วดูว่า accuracy ขึ้นหรือลง
+
+## ทำตาม CONTRACT ตรงไหนบ้าง
+
+| ข้อ | ที่ทำ |
+|---|---|
+| §0 error | ทุก error ตอบรูปแบบ `{"error":{code,message,service,request_id}}` พร้อม status ที่ถูก — รวม 422 กับ 404 ที่ FastAPI ปกติตอบ `{"detail":...}` มาเอง |
+| §0 content-type | `application/json; charset=utf-8` ทุก response |
+| §0 X-Request-ID | รับมา/สร้างใหม่ แล้วส่งต่อทุก hop ผ่าน `forward_headers()` |
+| §0 งบเวลา | รวมไม่เกิน 70s คุมด้วย `app/budget.py` |
+| §0 confidence | ความมั่นใจต่อ **การเลือก route** เท่านั้น · rules = 0.9 · classifier = score จากโมเดล · llm = ค่าที่โมเดลคืน · ไม่เอาคะแนน retrieval มาใส่ |
+| §2 | `RouteRequest` / `RouteResponse` ครบทุก field ไม่เปลี่ยนชื่อ |
+| §3 | ตาราง map หมวด→route ใช้ตามที่ล็อกไว้ ที่ threshold 0.75 |
+| §4 | `chunks: []` แปลว่า "ไม่เจอ" ไม่ใช่ error |
+| §5 | ใส่เลข `ref` 1..n ให้ contexts เอง · ไม่เรียก `grounded` ตอน contexts ว่าง |
+| §7 | อ่าน URL และชื่อโมเดลจาก env ทั้งหมด ไม่ hardcode และไม่ตั้งชื่อ env ใหม่เอง |
+
+error ที่ไม่ได้คาดไว้ **ไม่กลบเป็น 200** — hop ที่ล่มมี fallback ครบอยู่แล้ว ส่วนที่เหลือปล่อยให้ขึ้น 500
+ตามรูปแบบใน CONTRACT เพราะ 02 มี error mapping 502/504 รออยู่ และบั๊กเงียบคือสิ่งที่แพงที่สุดตอนรวมงาน
 
 ## รันเดี่ยว
 

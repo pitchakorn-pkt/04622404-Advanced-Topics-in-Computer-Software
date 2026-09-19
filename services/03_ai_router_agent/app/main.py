@@ -15,17 +15,50 @@ import asyncio
 
 import httpx
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import cascade, llm, plans, rules
-from .cascade import Decision
 from .budget import Budget, Steps
-from .common import forward_headers, health_payload, jlog, request_id_middleware  # noqa: F401
+from .common import (error_body, forward_headers, health_payload, jlog,  # noqa: F401
+                     request_id_middleware)
 from .config import HISTORY_MAX_CHARS, HISTORY_MAX_MESSAGES
-from .plans import Outcome
 from .schemas import RouteRequest, RouteResponse, TokenUsage, Trace
 
-app = FastAPI(title="chuayduay · router")
+
+class UTF8JSONResponse(JSONResponse):
+    """CONTRACT ข้อ 0 กำหนด Content-Type เป็น application/json; charset=utf-8
+
+    ค่า default ของ FastAPI ส่งแค่ application/json ซึ่งอ่านภาษาไทยได้อยู่แล้ว
+    แต่ระบุ charset ไปเลยจะได้ไม่ต้องหวังว่า client ทุกตัวจะเดา encoding ถูก
+    """
+    media_type = "application/json; charset=utf-8"
+
+
+app = FastAPI(title="chuayduay · router", default_response_class=UTF8JSONResponse)
 app.middleware("http")(request_id_middleware)
+
+# CONTRACT ข้อ 0: error ทุกกรณีต้องรูปแบบเดียวกันพร้อม status ที่ถูกต้อง
+# ที่ FastAPI ตอบมาเองคือ {"detail": ...} ซึ่งคนละรูปแบบกับที่ทั้งทีมตกลงกันไว้
+ERROR_CODES = {400: "BAD_REQUEST", 404: "NOT_FOUND", 405: "METHOD_NOT_ALLOWED",
+               422: "VALIDATION_ERROR", 500: "INTERNAL_ERROR"}
+
+
+@app.exception_handler(StarletteHTTPException)
+async def _http_error(request, exc: StarletteHTTPException):
+    return UTF8JSONResponse(
+        status_code=exc.status_code,
+        content=error_body(ERROR_CODES.get(exc.status_code, "ERROR"), str(exc.detail)))
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_error(request, exc: RequestValidationError):
+    fields = sorted({str(e["loc"][-1]) for e in exc.errors()})
+    jlog(event="validation_error", fields=fields)
+    return UTF8JSONResponse(
+        status_code=422,
+        content=error_body("VALIDATION_ERROR", f"ข้อมูลที่ส่งมาไม่ถูกต้อง: {', '.join(fields)}"))
 
 _client: httpx.AsyncClient | None = None
 
@@ -75,21 +108,16 @@ async def route(req: RouteRequest):
     steps = Steps()
     history = _trim_history(req.history)
 
-    try:
-        # file_text เป็น "ข้อมูล" ไม่ใช่ "คำสั่ง" — ห้ามเอาไปมีผลกับการเลือก route (prompt injection)
-        decision = await cascade.decide(req.query, history, _client, budget, steps,
-                                        req.request_id,
-                                        has_file=bool(req.file_text and req.file_text.strip()))
+    # hop ไหนล่มเรามี fallback ให้หมดแล้ว (ดู app/plans.py) ส่วน error ที่ไม่ได้คาดไว้
+    # ปล่อยให้ middleware ตอบ 500 ตามรูปแบบใน CONTRACT ข้อ 0 — กลบไว้แล้วจะกลายเป็นบั๊กเงียบ
+    # ที่ไม่มีใครเห็นตอนรวมงาน และ 02 มี error mapping 502/504 รออยู่แล้ว
 
-        outcome = await plans.execute(decision, req.query, history, req.file_text,
-                                      req.request_id, _client, budget, steps)
-    except Exception as exc:  # noqa: BLE001
-        # 02 แปลง error ทุกแบบจากเราเป็น 502 แล้วผู้ใช้จะไม่เห็นอะไรเลย
-        # ยอมตอบข้อความขอโทษดีกว่าหน้าจอว่าง ส่วนตัว error เก็บไว้ใน log ให้ไล่ย้อนได้ด้วย request_id
-        jlog(event="route_failed", error=str(exc)[:300], error_type=type(exc).__name__)
-        decision = Decision(route="clarify", confidence=0.0, layer="guard",
-                            reasoning="เกิดข้อผิดพลาดภายในระหว่างประมวลผล จึงขอให้ผู้ใช้ลองใหม่")
-        outcome = Outcome(answer=plans.UNEXPECTED_ERROR, route="clarify")
+    # file_text เป็น "ข้อมูล" ไม่ใช่ "คำสั่ง" — ห้ามเอาไปมีผลกับการเลือก route (prompt injection)
+    decision = await cascade.decide(req.query, history, _client, budget, steps, req.request_id,
+                                    has_file=bool(req.file_text and req.file_text.strip()))
+
+    outcome = await plans.execute(decision, req.query, history, req.file_text,
+                                  req.request_id, _client, budget, steps)
 
     reasoning = decision.reasoning
     if outcome.route != decision.route:
