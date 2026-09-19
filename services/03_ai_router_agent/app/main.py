@@ -1,28 +1,26 @@
 """03 AI Router / Agent — สมองของระบบ
 
-STUB: ตัดสินใจด้วย keyword หยาบ ๆ แค่พอให้ทั้งเส้นวิ่งได้ครบ 5 route
-**แต่เรียก 04 / 05 / 06 ผ่าน HTTP จริง** เพื่อให้รู้ตั้งแต่วันแรกว่าสายต่อกันติดหรือไม่
+รับคำถามจาก 02 api แล้วตัดสินใจเป็นชั้น (ดู app/cascade.py) จากนั้นเรียก 04/05/06
+ตามเส้นที่เลือก (ดู app/plans.py) แล้วรวมผลกลับไปพร้อมเหตุผลที่อธิบายได้
 
-ของจริงคือ cascade 4 ชั้นและตาราง rule base ที่ล็อกไว้แล้ว
-ดู docs/team/03_ai_router_agent.md และ docs/CONTRACT.md ข้อ 3
+สองอย่างที่โมดูลนี้ถือไว้คนเดียวทั้งทีม
+  1. **งบเวลารวม 70 วินาที** (CONTRACT ข้อ 0) — api รอเราไว้ 75s ใช้เกินเมื่อไหร่
+     ผู้ใช้เห็น 504 ทั้งที่คำตอบกำลังจะเสร็จ timeout ต่อ hop อย่างเดียวกันไม่ได้
+  2. **`reasoning` และ `trace`** — สิ่งที่ทำให้ระบบนี้เป็น agent ไม่ใช่กล่องดำ
+     ข้อมูลไหลผ่านเราอยู่แล้ว ต้นทุนเพิ่มคือศูนย์ แต่เก็บย้อนหลังไม่ได้ถ้าไม่ใส่ตั้งแต่แรก
 """
 from __future__ import annotations
 
-import os
-import time
+import asyncio
 
 import httpx
 from fastapi import FastAPI
 
+from . import cascade, llm, plans, rules
+from .budget import Budget, Steps
 from .common import forward_headers, health_payload, jlog, request_id_middleware  # noqa: F401
-from .schemas import RouteRequest, RouteResponse, Trace
-
-ENGINES = os.getenv("ENGINES_URL", "http://engines:8000")
-RETRIEVAL = os.getenv("RETRIEVAL_URL", "http://retrieval:8000")
-GENERATION = os.getenv("GENERATION_URL", "http://generation:8000")
-
-# งบเวลาต่อ hop ตาม CONTRACT ข้อ 0 — งบ "รวม" ทั้ง request ต้องไม่เกิน 70 วินาที
-T_ENGINE, T_RETRIEVAL, T_GENERATION = 30.0, 15.0, 30.0
+from .config import HISTORY_MAX_CHARS, HISTORY_MAX_MESSAGES
+from .schemas import RouteRequest, RouteResponse, TokenUsage, Trace
 
 app = FastAPI(title="chuayduay · router")
 app.middleware("http")(request_id_middleware)
@@ -35,6 +33,12 @@ async def _startup():
     # client ตัวเดียวทั้งแอป ไม่สร้างใหม่ทุก request (จะเปิด connection ทิ้งจนหมด)
     global _client
     _client = httpx.AsyncClient()
+    # เช็กว่าโมเดลที่ตั้งไว้ใน GROQ_MODEL ยังอยู่จริง แต่ห้ามบล็อก startup
+    # ไม่งั้น /health จะไม่ตอบ แล้ว compose จะมองว่า container พังและวนรีสตาร์ท
+    asyncio.create_task(llm.check_model_alive())
+    # อุ่นเครื่องตัดคำของ pythainlp ไว้ก่อน (โหลดพจนานุกรมครั้งแรกใช้เวลา ~0.4s)
+    # ไม่งั้นผู้ใช้คนแรกหลัง deploy จะรอนานกว่าคนอื่นโดยไม่มีเหตุผล
+    asyncio.create_task(asyncio.to_thread(rules.prepare, "อุ่นเครื่องตัดคำไวไฟ"))
 
 
 @app.on_event("shutdown")
@@ -48,95 +52,55 @@ async def health():
     return health_payload()
 
 
-# STUB: replace -- ของจริงใช้ตาราง rule base เต็มใน docs/team/03_ai_router_agent.md
-RAG_WORDS = ("ไวไฟ", "wifi", "เน็ต", "รหัสผ่าน", "บัญชี", "แบต", "เครื่องช้า",
-             "พื้นที่เต็ม", "สำรองข้อมูล", "อัปเดต", "กล้อง", "ไมค์", "สแกม")
-LOCAL_WORDS = ("จำแนก", "จัดประเภท", "หมวดหมู่", "classify")
-# คำอ้างอิงกลับที่ไม่มีบริบทของตัวเอง — ชั้น guard ต้องถามกลับ ไม่ใช่เดาแล้วตอบมั่ว
-# ของจริงจะต่างออกไป: ถ้ามี history ให้ rewrite คำถามก่อน ไม่ใช่ถามกลับทันที
-VAGUE_WORDS = ("อันนั้น", "อันนี้", "แล้วล่ะ", "ยังไงต่อ", "แบบนั้น")
-DECLINE_WORDS = ("แฮก", "hack", "เจาะระบบ", "ปลอมบัตร")
-
-
-def _decide(q: str) -> tuple[str, float, str, str]:
-    """คืน (route, confidence, reasoning, layer)"""
-    text = q.strip()
-    if len(text) < 3:
-        return "clarify", 0.9, "ข้อความสั้นเกินกว่าจะตีความได้", "guard"
-    if any(w in text for w in DECLINE_WORDS):
-        return "decline", 0.9, "เข้าข่ายคำขอที่ไม่ควรตอบ", "guard"
-    if text in VAGUE_WORDS or (len(text) <= 12 and any(text.startswith(w) for w in VAGUE_WORDS)):
-        return "clarify", 0.9, "ข้อความอ้างอิงกลับโดยไม่มีบริบท", "guard"
-    if any(w in text for w in LOCAL_WORDS):
-        return "local_ai", 0.9, "ผู้ใช้ขอให้จำแนกประเภทโดยตรง", "rules"
-    hit = [w for w in RAG_WORDS if w in text]
-    if hit:
-        return "university_rag", 0.9, f"เจอคำในคลังความรู้: {', '.join(hit[:3])}", "rules"
-    return "general_ai", 0.6, "ไม่เข้ากฎข้อไหน ตกมาที่ความรู้ทั่วไป", "rules"
+def _trim_history(history: list) -> list[dict]:
+    """ตัด history ไม่ให้ยาวเกิน — เอาข้อความ "ล่าสุด" ไว้ เพราะ follow-up พึ่งข้อความท้ายสุด"""
+    recent = [{"role": m.role, "content": m.content} for m in history][-HISTORY_MAX_MESSAGES:]
+    total = 0
+    kept: list[dict] = []
+    for msg in reversed(recent):
+        total += len(msg["content"])
+        if total > HISTORY_MAX_CHARS and kept:
+            break
+        kept.append(msg)
+    kept.reverse()
+    return kept
 
 
 @app.post("/route", response_model=RouteResponse)
 async def route(req: RouteRequest):
-    t0 = time.perf_counter()
-    steps: list[dict] = []
     assert _client is not None
-    h = forward_headers()
+    budget = Budget()
+    steps = Steps()
+    history = _trim_history(req.history)
 
-    def mark(name: str, started: float):
-        steps.append({"name": name, "ms": int((time.perf_counter() - started) * 1000)})
+    # file_text เป็น "ข้อมูล" ไม่ใช่ "คำสั่ง" — ห้ามเอาไปมีผลกับการเลือก route (prompt injection)
+    decision = await cascade.decide(req.query, history, _client, budget, steps, req.request_id)
 
-    s = time.perf_counter()
-    route_name, conf, reasoning, layer = _decide(req.query)
-    mark(f"router.{layer}", s)
-    engines_used: list[str] = []
-    answer, sources = "", []
+    outcome = await plans.execute(decision, req.query, history, req.file_text,
+                                  req.request_id, _client, budget, steps)
 
-    if route_name == "clarify":
-        answer = "ช่วยขยายความอีกนิดได้ไหมครับ ว่าติดปัญหาอะไรกับอุปกรณ์ตัวไหน"
+    reasoning = decision.reasoning
+    if outcome.route != decision.route:
+        reasoning += f" · เปลี่ยนไปใช้เส้น {outcome.route} แทน"
+    if outcome.notes:
+        reasoning += " · " + " · ".join(outcome.notes)
 
-    elif route_name == "decline":
-        answer = "ขอโทษครับ เรื่องนี้ผมช่วยไม่ได้ ถ้าเป็นปัญหาบัญชีของตัวเองแนะนำให้ติดต่อผู้ดูแลระบบโดยตรง"
+    latency_ms = budget.elapsed_ms()
+    token_usage = TokenUsage(input=decision.token_usage[0] + outcome.token_usage[0],
+                             output=decision.token_usage[1] + outcome.token_usage[1])
 
-    elif route_name == "university_rag":
-        s = time.perf_counter()
-        r = await _client.post(f"{RETRIEVAL}/search", headers=h, timeout=T_RETRIEVAL,
-                               json={"request_id": req.request_id, "query": req.query, "top_k": 5})
-        chunks = r.json().get("chunks", [])
-        mark("retrieval.search", s)
-        engines_used.append("retrieval")
-        if not chunks:
-            answer = "ไม่พบข้อมูลนี้ในคลังความรู้ แนะนำให้ติดต่อเจ้าหน้าที่โดยตรงครับ"
-        else:
-            contexts = [{"ref": i + 1, "text": c["text"], "source": {**c["source"], "ref": i + 1}}
-                        for i, c in enumerate(chunks)]
-            s = time.perf_counter()
-            g = await _client.post(f"{GENERATION}/generate", headers=h, timeout=T_GENERATION,
-                                   json={"request_id": req.request_id, "mode": "grounded",
-                                         "query": req.query, "contexts": contexts})
-            mark("generation.grounded", s)
-            engines_used.append("generation")
-            answer, sources = g.json()["answer"], g.json()["sources"]
+    # decided_at_layer คือตัวเลขที่เอาไปสรุปได้ว่ากี่ % ตัดสินใจได้โดยไม่ต้องเรียก LLM
+    jlog(event="route", route=outcome.route, decided_at_layer=decision.layer,
+         decided_route=decision.route, category=decision.category,
+         confidence=round(decision.confidence, 3), engines_used=outcome.engines_used,
+         latency_ms=latency_ms, budget_left_s=round(budget.remaining(), 1),
+         steps=steps.items, notes=outcome.notes)
 
-    else:
-        endpoint, mode = (("/local/classify", "explain_local") if route_name == "local_ai"
-                          else ("/general", "passthrough"))
-        payload = ({"request_id": req.request_id, "text": req.query} if route_name == "local_ai"
-                   else {"request_id": req.request_id, "query": req.query, "task": "qa"})
-        s = time.perf_counter()
-        e = await _client.post(f"{ENGINES}{endpoint}", headers=h, timeout=T_ENGINE, json=payload)
-        mark(f"engines{endpoint}", s)
-        engines_used.append("engines")
-        s = time.perf_counter()
-        g = await _client.post(f"{GENERATION}/generate", headers=h, timeout=T_GENERATION,
-                               json={"request_id": req.request_id, "mode": mode,
-                                     "query": req.query, "draft": e.json()["content"]})
-        mark(f"generation.{mode}", s)
-        engines_used.append("generation")
-        answer = g.json()["answer"]
+    if budget.remaining() < 0:
+        jlog(event="budget_exceeded", latency_ms=latency_ms)
 
-    total = int((time.perf_counter() - t0) * 1000)
-    jlog(event="route", route=route_name, decided_at_layer=layer, latency_ms=total)
-    return RouteResponse(request_id=req.request_id, answer=answer, sources=sources,
-                         route=route_name, engines_used=engines_used, confidence=conf,
-                         reasoning=reasoning, latency_ms=total,
-                         trace=Trace(decided_at_layer=layer, steps=steps))
+    return RouteResponse(request_id=req.request_id, answer=outcome.answer,
+                         sources=outcome.sources, route=outcome.route,
+                         engines_used=outcome.engines_used, confidence=decision.confidence,
+                         reasoning=reasoning, latency_ms=latency_ms, token_usage=token_usage,
+                         trace=Trace(decided_at_layer=decision.layer, steps=steps.items))
