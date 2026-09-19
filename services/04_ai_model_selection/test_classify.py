@@ -90,7 +90,10 @@ def test_classify_returns_503_when_model_missing(client, monkeypatch, tmp_path):
     )
 
     assert resp.status_code == 503
-    error = resp.json()["detail"]["error"]
+    # response ต้องเป็น {"error": {...}} ตรงๆ ตาม CONTRACT §0 (ไม่ใช่
+    # {"detail": {"error": {...}}} ที่ FastAPI ห่อให้อัตโนมัติถ้า raise
+    # HTTPException(detail=...) — จุดนี้เคยผิดมาก่อน ดู PR #8 code review)
+    error = resp.json()["error"]
     assert error["code"] == "MODEL_NOT_LOADED"
 
     # คืน cache เดิมกลับ กัน test อื่นที่รันหลังจากนี้ (ถ้ามี) โหลดโมเดลใหม่ไม่ทัน
