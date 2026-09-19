@@ -1,6 +1,6 @@
 ---
 title: วิธีสำรองข้อมูลรูปภาพและไฟล์สำคัญลง Cloud
-url: https://help.example.com/data-backup
+url:
 date: 2026-06-01
 ---
 

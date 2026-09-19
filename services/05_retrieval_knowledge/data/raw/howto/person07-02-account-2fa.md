@@ -1,6 +1,6 @@
 ---
 title: วิธีตั้งค่า 2FA ป้องกันโดนแฮ็กบัญชี
-url: https://help.example.com/security-2fa
+url:
 date: 2026-06-01
 ---
 

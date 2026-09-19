@@ -1,6 +1,6 @@
 ---
 title: วิธีแก้ปัญหาเชื่อมต่อ Wi-Fi หอพักหรือที่ทำงานไม่ได้
-url: https://help.example.com/wifi-issue
+url:
 date: 2026-06-01
 ---
 

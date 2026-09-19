@@ -1,6 +1,6 @@
 ---
 title: วิธีแชร์เน็ตจากมือถือ (Personal Hotspot) เมื่อเน็ตบ้านล่ม
-url: https://help.example.com/mobile-hotspot
+url:
 date: 2026-06-01
 ---
 

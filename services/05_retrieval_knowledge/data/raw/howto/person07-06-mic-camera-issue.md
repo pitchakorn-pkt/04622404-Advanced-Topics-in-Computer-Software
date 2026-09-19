@@ -1,6 +1,6 @@
 ---
 title: วิธีแก้ไขปัญหาไมโครโฟนหรือกล้องไม่ทำงานตอนประชุม
-url: https://help.example.com/hardware-media
+url:
 date: 2026-06-01
 ---
 
