@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
+import remarkGfm from "remark-gfm";
 
 // ป้ายภาษาคนของแต่ละ route — CONTRACT ห้ามโชว์ค่า enum ดิบให้ผู้ใช้เห็น
 const ROUTE_LABEL: Record<string, string> = {
@@ -219,7 +220,7 @@ export default function Chat() {
                   <div>{m.content}</div>
                 ) : (
                   <div className="markdown">
-                    <ReactMarkdown rehypePlugins={[rehypeSanitize]}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
                       {linkifyRefs(m.content, i)}
                     </ReactMarkdown>
                   </div>
