@@ -36,6 +36,22 @@ compose service: `router` · ฟัง `0.0.0.0:8000` ข้างใน contain
 "คำตอบนี้มาจากความรู้ทั่วไป ไม่ได้อ้างอิงเอกสารในคลังความรู้" (CONTRACT §3 — ห้ามตอบ "ไม่พบ" ทันที)
 **ถ้า 06 ล่ม** → ยังส่งชื่อเอกสารที่ค้นเจอกลับไปให้ผู้ใช้ ดีกว่าตอบว่าไม่มีอะไรเลย
 
+## ต่อกับโมดูลอื่นยังไง (ตรวจกับโค้ดจริงของเพื่อนแล้ว ไม่ได้ดูแค่ CONTRACT)
+
+| ใคร | ตรวจอะไร | ผล |
+|---|---|---|
+| 02 api | payload ที่ส่งมาจริงคือ `request_id, session_id, user{id,role}, query, history` (ยังไม่มี `file_text`) | รับได้ครบ มีเทสยืนยันใน `tests/test_route_endpoint.py` |
+| 02 api | ตั้ง `T_ROUTER = 75.0` และแปลง error ทุกแบบจากเราเป็น 502 | เราตอบ 200 เสมอ แม้ hop ข้างในพัง และจบก่อน 70s |
+| 04 engines | `/local/classify` ตอบ 503 ถ้าโมเดลยังไม่พร้อม · `/general` โยน 500 เมื่อ LLM ล่มทั้งสองเจ้า | นับเป็น hop ล้ม ตกไปชั้นถัดไป/fallback ไม่ทำให้ request พัง |
+| 05 retrieval | ตอบ 503 `RETRIEVAL_INDEX_UNAVAILABLE` ถ้ายังไม่ได้ `make ingest` | fallback เป็น general_ai พร้อมบอกผู้ใช้ว่าไม่ได้อ้างอิงเอกสาร |
+| 06 generation | `grounded` ที่ `contexts` ว่างจะตอบว่าไม่พบข้อมูล และคืนเฉพาะ source ที่ถูกอ้างจริง | เราไม่เรียก grounded ตอน chunks ว่าง และใส่เลข `ref` 1..n ให้เอง |
+| 01 web | อ่าน `route`, `confidence`, `sources[].ref/title/url`, `trace.decided_at_layer`, `trace.steps[].name/ms` | ตรงทุกตัว ป้าย `LAYER_LABEL` ของเว็บมีครบทั้ง 4 ชั้นที่เราส่ง |
+
+**เพิ่ม `reasoning` เข้าไปใน `trace`** — หน้าเว็บอ่าน `reasoning` จาก `ChatResponse` ก่อน แล้ว fallback มาที่ `trace.reasoning`
+แต่ `ChatResponse` ของ 02 ยังไม่มี field นั้น ทำให้แผงอธิบายการตัดสินใจว่างเปล่า
+CONTRACT ข้อ 0 อนุญาตให้เพิ่ม field แบบ optional ได้ และ 02 ส่ง `trace` ต่อทั้งก้อนอยู่แล้ว
+ใส่ไว้ตรงนี้ผู้ใช้จึงเห็นเหตุผลได้เลยโดยไม่ต้องรอใครแก้โค้ด (ถ้า 02 เพิ่ม field `reasoning` ทีหลัง หน้าเว็บจะใช้ตัวนั้นแทนเอง)
+
 ## งบเวลา 70 วินาที (`app/budget.py`)
 
 api รอเราไว้ 75s เราต้องจบก่อน 70s ไม่งั้นผู้ใช้เห็น 504 ทั้งที่คำตอบกำลังจะเสร็จ
@@ -45,7 +61,7 @@ timeout ต่อ hop ใน CONTRACT §0 เป็น "เพดาน" — เ
 ## วัดผล
 
 ```bash
-python -m pytest tests -q                              # 51 เคส ครอบคลุมชั้น 0-3 และ fallback ทุกเส้น
+python -m pytest tests -q                              # 58 เคส ครอบคลุมชั้น 0-3 และ fallback ทุกเส้น
 python tests/eval_routing.py --offline                 # เฉพาะชั้น 0-1 ไม่ยิง service ไหนเลย
 ENGINES_URL=http://localhost:8004 python tests/eval_routing.py   # cascade เต็ม (ต้องมี engines + API key)
 ```

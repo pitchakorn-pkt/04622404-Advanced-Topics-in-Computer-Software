@@ -17,9 +17,11 @@ import httpx
 from fastapi import FastAPI
 
 from . import cascade, llm, plans, rules
+from .cascade import Decision
 from .budget import Budget, Steps
 from .common import forward_headers, health_payload, jlog, request_id_middleware  # noqa: F401
 from .config import HISTORY_MAX_CHARS, HISTORY_MAX_MESSAGES
+from .plans import Outcome
 from .schemas import RouteRequest, RouteResponse, TokenUsage, Trace
 
 app = FastAPI(title="chuayduay · router")
@@ -73,12 +75,21 @@ async def route(req: RouteRequest):
     steps = Steps()
     history = _trim_history(req.history)
 
-    # file_text เป็น "ข้อมูล" ไม่ใช่ "คำสั่ง" — ห้ามเอาไปมีผลกับการเลือก route (prompt injection)
-    decision = await cascade.decide(req.query, history, _client, budget, steps, req.request_id,
-                                    has_file=bool(req.file_text and req.file_text.strip()))
+    try:
+        # file_text เป็น "ข้อมูล" ไม่ใช่ "คำสั่ง" — ห้ามเอาไปมีผลกับการเลือก route (prompt injection)
+        decision = await cascade.decide(req.query, history, _client, budget, steps,
+                                        req.request_id,
+                                        has_file=bool(req.file_text and req.file_text.strip()))
 
-    outcome = await plans.execute(decision, req.query, history, req.file_text,
-                                  req.request_id, _client, budget, steps)
+        outcome = await plans.execute(decision, req.query, history, req.file_text,
+                                      req.request_id, _client, budget, steps)
+    except Exception as exc:  # noqa: BLE001
+        # 02 แปลง error ทุกแบบจากเราเป็น 502 แล้วผู้ใช้จะไม่เห็นอะไรเลย
+        # ยอมตอบข้อความขอโทษดีกว่าหน้าจอว่าง ส่วนตัว error เก็บไว้ใน log ให้ไล่ย้อนได้ด้วย request_id
+        jlog(event="route_failed", error=str(exc)[:300], error_type=type(exc).__name__)
+        decision = Decision(route="clarify", confidence=0.0, layer="guard",
+                            reasoning="เกิดข้อผิดพลาดภายในระหว่างประมวลผล จึงขอให้ผู้ใช้ลองใหม่")
+        outcome = Outcome(answer=plans.UNEXPECTED_ERROR, route="clarify")
 
     reasoning = decision.reasoning
     if outcome.route != decision.route:
@@ -104,4 +115,5 @@ async def route(req: RouteRequest):
                          sources=outcome.sources, route=outcome.route,
                          engines_used=outcome.engines_used, confidence=decision.confidence,
                          reasoning=reasoning, latency_ms=latency_ms, token_usage=token_usage,
-                         trace=Trace(decided_at_layer=decision.layer, steps=steps.items))
+                         trace=Trace(decided_at_layer=decision.layer, steps=steps.items,
+                                     reasoning=reasoning))
