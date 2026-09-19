@@ -304,3 +304,70 @@ def test_no_doc_note_only_when_general_ai_actually_answered(calls, monkeypatch):
     # การต่อท้ายว่า "ไม่ได้อ้างอิงเอกสาร" ตรงนี้จะทำให้ผู้ใช้งงว่าตกลงตอบอะไรมา
     assert "ไม่ได้อ้างอิงเอกสาร" not in out.answer
     assert out.answer.startswith("ตอนนี้ระบบผู้ช่วยตอบกลับไม่ได้ชั่วคราว")
+
+
+# ---- draft จาก LLM ห้ามถึงผู้ใช้โดยไม่ผ่านด่าน safety ของ 06 ----
+# CONTRACT ข้อ 7 กับดักข้อ 3: Groq ไม่มี safety ฝั่งผู้ให้บริการ 06 เป็นด่านเดียวของทั้งระบบ
+
+def test_general_never_leaks_unchecked_draft_when_generation_is_down(calls, monkeypatch):
+    async def down(client, request_id, mode, query, timeout, history=None, contexts=None, draft=None):
+        raise clients.HopError(f"generation.{mode}", "HTTP 500")
+
+    monkeypatch.setattr(clients, "generate", down)
+    out = plan("general_ai", query="ช่วยเขียนอีเมลขอลาป่วย")
+    assert out.answer == plans.SERVICE_BUSY
+    assert "คำตอบจากความรู้ทั่วไป" not in out.answer      # draft ของ 04 ต้องไม่หลุดออกไป
+
+
+class BudgetForOneHopOnly(Budget):
+    """มีเวลาพอเรียก 04 แต่หมดก่อนจะได้เรียก 06 — จุดที่ draft เคยหลุดออกไป"""
+
+    def __init__(self):
+        super().__init__()
+        self.hops = 0
+
+    def hop(self, cap: float):
+        self.hops += 1
+        return 5.0 if self.hops == 1 else None
+
+
+def test_general_never_leaks_unchecked_draft_when_budget_runs_out(calls):
+    out = plan("general_ai", query="ช่วยเขียนอีเมลขอลาป่วย", budget=BudgetForOneHopOnly())
+    assert calls["general"] and not calls["generate"]     # เรียก 04 แล้ว แต่ไม่ได้เรียก 06
+    assert out.answer == plans.SERVICE_BUSY
+
+
+def test_general_falls_back_when_generation_returns_empty_answer(calls, monkeypatch):
+    async def empty(client, request_id, mode, query, timeout, history=None, contexts=None, draft=None):
+        return {"answer": "", "sources": [], "blocked": True, "block_reason": "ตรวจแล้วไม่ผ่าน",
+                "model": "none", "latency_ms": 1, "token_usage": {"input": 0, "output": 0}}
+
+    monkeypatch.setattr(clients, "generate", empty)
+    out = plan("general_ai", query="ช่วยเขียนอีเมลขอลาป่วย")
+    # 06 ตอบกลับมาแต่ไม่มีเนื้อคำตอบ ก็ยังห้ามตกไปใช้ draft ดิบแทน
+    assert out.answer == plans.SERVICE_BUSY
+
+
+def test_local_ai_may_still_use_its_draft(calls, monkeypatch):
+    async def down(client, request_id, mode, query, timeout, history=None, contexts=None, draft=None):
+        raise clients.HopError(f"generation.{mode}", "HTTP 500")
+
+    monkeypatch.setattr(clients, "generate", down)
+    out = plan("local_ai", classify_result=engine_result("หมวด: connectivity (0.90)"))
+    # draft ของเส้นนี้คือผลจาก classifier ในเครื่อง ไม่ได้มาจาก LLM จึงไม่ต้องผ่านด่าน safety
+    assert out.answer == "หมวด: connectivity (0.90)"
+
+
+def test_rag_fallback_does_not_add_doc_note_to_a_busy_message(calls, monkeypatch):
+    async def nothing_found(client, request_id, query, top_k, timeout, filters=None):
+        return []
+
+    async def generation_down(client, request_id, mode, query, timeout,
+                              history=None, contexts=None, draft=None):
+        raise clients.HopError(f"generation.{mode}", "HTTP 500")
+
+    monkeypatch.setattr(clients, "search", nothing_found)
+    monkeypatch.setattr(clients, "generate", generation_down)
+    out = plan("university_rag")
+    assert out.answer == plans.SERVICE_BUSY
+    assert "ไม่ได้อ้างอิงเอกสาร" not in out.answer

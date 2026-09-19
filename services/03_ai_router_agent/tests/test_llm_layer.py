@@ -123,3 +123,62 @@ def test_rewrite_returns_original_when_nothing_changed(monkeypatch):
     wire(monkeypatch, {"groq": FakeCompletions('{"rewritten_query": "คำถามเดิม"}')})
     rewritten, _tokens = asyncio.run(llm.rewrite_query("คำถามเดิม", [{"role": "user", "content": "ก่อนหน้า"}]))
     assert rewritten is None            # เหมือนเดิม = ไม่ต้องเปลี่ยนคำค้น
+
+
+class FakeClock:
+    """นาฬิกาปลอม ให้เทสเดินเวลาได้โดยไม่ต้องรอจริง"""
+
+    def __init__(self, start: float = 1000.0):
+        self.now = start
+
+    def monotonic(self) -> float:
+        return self.now
+
+
+class SlowCompletions(FakeCompletions):
+    """provider ที่กินเวลาไปเท่าที่กำหนดก่อนจะล้ม"""
+
+    def __init__(self, clock: FakeClock, spends: float, content=None, error=None):
+        super().__init__(content, error)
+        self.clock = clock
+        self.spends = spends
+        self.timeouts: list[float] = []
+
+    async def create(self, **kwargs):
+        self.timeouts.append(kwargs["timeout"])
+        self.clock.now += self.spends
+        return await super().create(**kwargs)
+
+
+def test_fallback_gets_only_the_time_that_is_left(monkeypatch):
+    """CONTRACT ข้อ 0: ขั้น LLM ของ router ทั้งขั้นต้องไม่เกิน 10s
+
+    ถ้าตัวสำรองเริ่มนับ timeout ใหม่เต็มจำนวน ตัวหลัก 10s + ตัวสำรองอีก 10s = 20s
+    งบ 70s ของทั้ง request จะหายไปโดยไม่มีใครรู้
+    """
+    clock = FakeClock()
+    monkeypatch.setattr(llm, "time", clock)
+
+    primary = SlowCompletions(clock, spends=9.0, error=TimeoutError("ช้าเกิน"))
+    fallback = SlowCompletions(clock, spends=0.4, content=GOOD_JSON)
+    wire(monkeypatch, {"groq": primary, "gemini": fallback})
+
+    verdict = asyncio.run(llm.decide_route("ต่อไวไฟไม่ได้", [], timeout=10.0))
+
+    assert verdict is not None and verdict.model == "model-gemini"
+    assert primary.timeouts == [10.0]            # ตัวหลักได้งบเต็ม
+    assert fallback.timeouts[0] == pytest.approx(1.0)   # ตัวสำรองได้เฉพาะเวลาที่เหลือ
+    assert sum(c.spends for c in (primary, fallback)) <= 10.0
+
+
+def test_fallback_is_skipped_when_no_time_is_left(monkeypatch):
+    clock = FakeClock()
+    monkeypatch.setattr(llm, "time", clock)
+
+    primary = SlowCompletions(clock, spends=9.7, error=TimeoutError("ช้าเกิน"))
+    fallback = SlowCompletions(clock, spends=0.1, content=GOOD_JSON)
+    wire(monkeypatch, {"groq": primary, "gemini": fallback})
+
+    # เหลือ 0.3s ยิงไปก็ timeout ซ้ำเปล่า ๆ — ถอยไป clarify ดีกว่าเผางบที่เหลือทิ้ง
+    assert asyncio.run(llm.decide_route("ต่อไวไฟไม่ได้", [], timeout=10.0)) is None
+    assert fallback.timeouts == []

@@ -140,9 +140,10 @@ async def _rag(decision: Decision, query: str, history: list[dict], file_text: s
         fallback.token_usage[1] += out.token_usage[1]
         for engine in out.engines_used:
             fallback.use(engine)
-        if "engines" in fallback.engines_used:
+        if "engines" in fallback.engines_used and fallback.answer != SERVICE_BUSY:
             # ต่อท้ายเฉพาะตอนที่ได้คำตอบจากความรู้ทั่วไปมาจริง ๆ
-            # ถ้า 04 ล่มด้วยจะเหลือแค่ข้อความว่าระบบไม่ว่าง การบอกว่า "ไม่ได้อ้างอิงเอกสาร" ตรงนั้นไม่มีความหมาย
+            # ถ้า 04 หรือ 06 ล่มด้วยจะเหลือแค่ข้อความว่าระบบไม่ว่าง
+            # การบอกว่า "ไม่ได้อ้างอิงเอกสาร" ต่อท้ายตรงนั้นมีแต่ทำให้ผู้ใช้งง
             fallback.answer = fallback.answer.rstrip() + NO_DOC_NOTE
         return fallback
 
@@ -207,8 +208,10 @@ async def _general(query: str, history: list[dict], file_text: str | None, reque
     # passthrough ทำแค่ safety + จัดรูปแบบ ไม่เรียก LLM ซ้ำ — นี่คือเหตุผลทั้งหมดที่โหมดนี้มีอยู่
     timeout = budget.hop(T_GENERATION)
     if timeout is None:
-        out.answer = draft or SERVICE_BUSY
-        out.notes.append("งบเวลาไม่พอสำหรับขั้นตรวจความปลอดภัย จึงส่งคำตอบดิบกลับไป")
+        # ห้ามส่ง draft ดิบออกไปเด็ดขาด — Groq ไม่มี safety ฝั่งผู้ให้บริการ (CONTRACT ข้อ 7 กับดักข้อ 3)
+        # 06 เป็นด่านเดียวที่กรอง PII และเนื้อหาอันตราย ข้ามด่านนี้เมื่อไหร่คือส่งของที่ยังไม่ตรวจถึงผู้ใช้
+        out.answer = SERVICE_BUSY
+        out.notes.append("งบเวลาไม่พอสำหรับขั้นตรวจความปลอดภัย จึงไม่ส่งคำตอบที่ยังไม่ผ่านการตรวจ")
         return out
 
     try:
@@ -217,13 +220,13 @@ async def _general(query: str, history: list[dict], file_text: str | None, reque
                                             history=history, draft=draft)
     except clients.HopError as exc:
         jlog(event="generation_down", mode="passthrough", reason=exc.reason)
-        out.answer = draft or SERVICE_BUSY
-        out.notes.append(f"ขั้นตรวจความปลอดภัยไม่ตอบ ({exc.reason}) จึงส่งคำตอบดิบกลับไป")
+        out.answer = SERVICE_BUSY
+        out.notes.append(f"ขั้นตรวจความปลอดภัยไม่ตอบ ({exc.reason}) จึงไม่ส่งคำตอบที่ยังไม่ผ่านการตรวจ")
         return out
 
     out.use("generation")
     out.add_tokens(result)
-    out.answer = result.get("answer") or draft
+    out.answer = result.get("answer") or SERVICE_BUSY
     if result.get("blocked"):
         out.notes.append(f"06 บล็อกคำตอบ: {result.get('block_reason')}")
     return out

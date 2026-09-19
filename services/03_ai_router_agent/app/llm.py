@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from dataclasses import dataclass
 
 from openai import AsyncOpenAI
@@ -21,6 +22,9 @@ from .config import LLM_FALLBACK, LLM_PRIMARY, T_LLM, provider_config
 _clients: dict[str, AsyncOpenAI] = {}
 
 ROUTE_VALUES = ("general_ai", "university_rag", "local_ai", "clarify", "decline")
+
+# เหลือเวลาน้อยกว่านี้ไม่ต้องลองเจ้าสำรองแล้ว ยิงไปก็ timeout ซ้ำเปล่า ๆ
+MIN_LLM_SLICE = 1.0
 
 SYSTEM_PROMPT = """คุณคือชั้นตัดสินใจของผู้ช่วยภาษาไทยชื่อ "ช่วยด้วย" ที่ช่วยแก้ปัญหาการใช้งานมือถือและคอมพิวเตอร์
 หน้าที่ของคุณคือเลือกเส้นทางให้คำถาม ไม่ใช่ตอบคำถาม
@@ -104,7 +108,17 @@ async def _chat(messages: list[dict], timeout: float,
     """ยิงไปที่ provider หลักก่อน ล้มแล้วค่อยลองตัวสำรอง — คืน (ข้อความ, ชื่อโมเดล, token)"""
     # ตั้ง LLM_FALLBACK เป็นเจ้าเดียวกับตัวหลักได้ ไม่ต้องยิงซ้ำเจ้าเดิมสองรอบให้เสียเวลาในงบ
     providers = [LLM_PRIMARY] + ([LLM_FALLBACK] if LLM_FALLBACK != LLM_PRIMARY else [])
+
+    # timeout ที่รับเข้ามาคืองบของ "ทั้งขั้นตอนนี้" ไม่ใช่ของ provider ละตัว
+    # ถ้าให้ตัวสำรองเริ่มนับใหม่เต็มจำนวน ตัวหลัก timeout 10s แล้วตัวสำรองอีก 10s = 20s
+    # ซึ่งเกินที่ CONTRACT ข้อ 0 ให้ไว้ และ Budget ของทั้ง request ก็ไม่รู้ว่าเวลาหายไปเพิ่ม
+    deadline = time.monotonic() + timeout
     for provider in providers:
+        left = deadline - time.monotonic()
+        if left < MIN_LLM_SLICE:
+            jlog(event="llm_no_time_left", provider=provider, left=round(left, 2))
+            break
+
         pair = _client(provider)
         if not pair:
             continue
@@ -117,7 +131,7 @@ async def _chat(messages: list[dict], timeout: float,
                 max_tokens=max_tokens,
                 # ขอ JSON ทั้งทางพารามิเตอร์และย้ำในตัว prompt — อย่าพึ่งอย่างใดอย่างหนึ่ง
                 response_format={"type": "json_object"},
-                timeout=timeout,
+                timeout=left,
             )
         except Exception as exc:  # noqa: BLE001 — ชั้นนี้ล้มได้ แต่ห้ามทำให้ request พัง
             jlog(event="llm_failed", provider=provider, error=str(exc)[:200])
