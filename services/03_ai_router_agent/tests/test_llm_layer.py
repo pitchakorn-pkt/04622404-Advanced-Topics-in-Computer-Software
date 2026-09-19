@@ -21,9 +21,11 @@ class FakeCompletions:
         self.content = content
         self.error = error
         self.calls = 0
+        self.kwargs: list[dict] = []
 
     async def create(self, **kwargs):
         self.calls += 1
+        self.kwargs.append(kwargs)
         if self.error:
             raise self.error
 
@@ -182,3 +184,21 @@ def test_fallback_is_skipped_when_no_time_is_left(monkeypatch):
     # เหลือ 0.3s ยิงไปก็ timeout ซ้ำเปล่า ๆ — ถอยไป clarify ดีกว่าเผางบที่เหลือทิ้ง
     assert asyncio.run(llm.decide_route("ต่อไวไฟไม่ได้", [], timeout=10.0)) is None
     assert fallback.timeouts == []
+
+
+def test_reasoning_effort_is_sent_to_groq_only(monkeypatch):
+    """งานของชั้นนี้คือเลือกเส้นทาง ไม่ใช่ให้เหตุผลยาว ๆ — สั่ง Groq ให้คิดสั้นลง
+
+    วัดจริงแล้วใช้ ~100 token แทน ~430 และเร็วขึ้นเกือบเท่าตัวโดยคำตอบยังถูกเหมือนเดิม
+    แต่ `reasoning_effort` เป็นพารามิเตอร์ของ Groq เจ้าอื่นไม่รู้จัก ส่งไปมั่วจะพังทั้งคำขอ
+    """
+    primary = FakeCompletions(None, error=RuntimeError("ล่ม"))
+    fallback = FakeCompletions(GOOD_JSON)
+    wire(monkeypatch, {"groq": primary, "gemini": fallback})
+
+    asyncio.run(llm.decide_route("ต่อไวไฟไม่ได้", []))
+
+    assert primary.kwargs[0]["extra_body"] == {"reasoning_effort": "low"}
+    assert fallback.kwargs[0]["extra_body"] is None
+    # max_tokens ของชั้นเลือกเส้นทางต้องยังเผื่อไว้ เผื่อวันไหนโมเดลคิดยาวกว่าเดิม
+    assert primary.kwargs[0]["max_tokens"] == llm.ROUTE_MAX_TOKENS == 1024

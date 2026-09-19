@@ -137,6 +137,10 @@ async def _chat(messages: list[dict], timeout: float,
                 max_tokens=max_tokens,
                 # ขอ JSON ทั้งทางพารามิเตอร์และย้ำในตัว prompt — อย่าพึ่งอย่างใดอย่างหนึ่ง
                 response_format={"type": "json_object"},
+                # งานของชั้นนี้คือ "เลือกเส้นทาง" ไม่ใช่การให้เหตุผลยาว ๆ
+                # สั่งให้ Groq คิดสั้นลง วัดจริงแล้วใช้ ~100 token แทน ~430 และเร็วขึ้นเกือบเท่าตัว
+                # โดยคำตอบยังถูกเหมือนเดิม (พารามิเตอร์นี้เป็นของ Groq เจ้าอื่นไม่รู้จัก)
+                extra_body={"reasoning_effort": "low"} if provider == "groq" else None,
                 timeout=left,
             )
         except Exception as exc:  # noqa: BLE001 — ชั้นนี้ล้มได้ แต่ห้ามทำให้ request พัง
