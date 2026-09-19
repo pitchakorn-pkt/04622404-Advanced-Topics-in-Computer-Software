@@ -29,8 +29,9 @@ MIN_LLM_SLICE = 1.0
 # gpt-oss-120b ใช้ token ไปกับการ "คิด" ก่อนตอบด้วย ไม่ใช่แค่ความยาวคำตอบ
 # ตั้งน้อยเกินแล้วโมเดลคิดไม่จบ Groq จะตอบ 400 json_validate_failed แล้วเราตกไป clarify
 # ทั้งที่ตัดสินใจได้ (เจอจากการวัดจริงด้วย key: ที่ 300 ล้ม ที่ 1024 ใช้จริง ~430 token)
+# CONTRACT ข้อ 7 กับดักข้อ 5: คำตอบ JSON สั้น ๆ ให้ตั้ง max_tokens ไม่ต่ำกว่า 1024
 ROUTE_MAX_TOKENS = 1024
-REWRITE_MAX_TOKENS = 512
+REWRITE_MAX_TOKENS = 1024
 
 SYSTEM_PROMPT = """คุณคือชั้นตัดสินใจของผู้ช่วยภาษาไทยชื่อ "ช่วยด้วย" ที่ช่วยแก้ปัญหาการใช้งานมือถือและคอมพิวเตอร์
 หน้าที่ของคุณคือเลือกเส้นทางให้คำถาม ไม่ใช่ตอบคำถาม
@@ -147,9 +148,19 @@ async def _chat(messages: list[dict], timeout: float,
             jlog(event="llm_failed", provider=provider, error=str(exc)[:200])
             continue
 
+        choice = resp.choices[0]
         usage = resp.usage
         tokens = (usage.prompt_tokens, usage.completion_tokens) if usage else (0, 0)
-        return (resp.choices[0].message.content or "", model, tokens)
+
+        # CONTRACT ข้อ 7 กับดักข้อ 5: ต้องเช็ก finish_reason ทุกครั้ง
+        # ถ้าโดนตัดเพราะชน max_tokens แปลว่า JSON ไม่ครบก้อน เชื่อคำตอบนั้นไม่ได้
+        # ปล่อยผ่านแบบเงียบ ๆ แล้ว parse ล้มทีหลัง จะไม่มีใครรู้ว่าต้นเหตุคือเพดาน token
+        if getattr(choice, "finish_reason", None) == "length":
+            jlog(event="llm_truncated", provider=provider, model=model,
+                 max_tokens=max_tokens, output_tokens=tokens[1])
+            continue
+
+        return (choice.message.content or "", model, tokens)
     return None
 
 

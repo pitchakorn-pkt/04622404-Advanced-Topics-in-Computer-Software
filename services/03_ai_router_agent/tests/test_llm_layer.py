@@ -17,9 +17,11 @@ from app import llm  # noqa: E402
 
 
 class FakeCompletions:
-    def __init__(self, content: str | None, error: Exception | None = None):
+    def __init__(self, content: str | None, error: Exception | None = None,
+                 finish_reason: str = "stop"):
         self.content = content
         self.error = error
+        self.finish_reason = finish_reason
         self.calls = 0
         self.kwargs: list[dict] = []
 
@@ -34,6 +36,7 @@ class FakeCompletions:
 
         class Choice:
             message = Msg()
+            finish_reason = self.finish_reason
 
         class Usage:
             prompt_tokens, completion_tokens = 11, 22
@@ -202,3 +205,29 @@ def test_reasoning_effort_is_sent_to_groq_only(monkeypatch):
     assert fallback.kwargs[0]["extra_body"] is None
     # max_tokens ของชั้นเลือกเส้นทางต้องยังเผื่อไว้ เผื่อวันไหนโมเดลคิดยาวกว่าเดิม
     assert primary.kwargs[0]["max_tokens"] == llm.ROUTE_MAX_TOKENS == 1024
+
+
+def test_truncated_answer_is_logged_and_not_trusted(monkeypatch):
+    """CONTRACT ข้อ 7 กับดักข้อ 5: คำตอบที่โดนตัดเพราะชน max_tokens เชื่อไม่ได้
+
+    ถ้าปล่อยผ่านเงียบ ๆ แล้วไป parse ล้มทีหลัง จะไม่มีใครรู้ว่าต้นเหตุคือเพดาน token
+    """
+    truncated = FakeCompletions('{"route": "university_rag", "confid',
+                                finish_reason="length")
+    fallback = FakeCompletions(GOOD_JSON)
+    wire(monkeypatch, {"groq": truncated, "gemini": fallback})
+
+    verdict = asyncio.run(llm.decide_route("ต่อไวไฟไม่ได้", []))
+    # ของที่ขาดกลางทางต้องไม่ถูกใช้ แต่ต้องไม่ทำให้ทั้งคำขอพังด้วย — ไปถามตัวสำรองต่อ
+    assert verdict is not None and verdict.model == "model-gemini"
+
+
+def test_truncated_everywhere_falls_back_to_clarify(monkeypatch):
+    wire(monkeypatch, {"groq": FakeCompletions("{", finish_reason="length"),
+                       "gemini": FakeCompletions("{", finish_reason="length")})
+    assert asyncio.run(llm.decide_route("ต่อไวไฟไม่ได้", [])) is None
+
+
+def test_rewrite_max_tokens_meets_contract_floor():
+    # CONTRACT ข้อ 7 กับดักข้อ 5: คำตอบ JSON สั้น ๆ ต้องไม่ต่ำกว่า 1024
+    assert llm.REWRITE_MAX_TOKENS >= 1024 and llm.ROUTE_MAX_TOKENS >= 1024
