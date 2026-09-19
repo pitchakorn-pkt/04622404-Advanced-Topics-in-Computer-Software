@@ -1,6 +1,6 @@
 ---
 title: วิธีแก้ไขแอปพลิเคชันเด้งออกหรือค้างบ่อย
-url: https://help.example.com/app-updates
+url:
 date: 2026-06-01
 ---
 

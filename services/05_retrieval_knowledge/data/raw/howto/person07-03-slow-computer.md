@@ -1,6 +1,6 @@
 ---
 title: วิธีแก้ปัญหาคอมพิวเตอร์ทำงานช้าลงผิดปกติ
-url: https://help.example.com/pc-performance
+url:
 date: 2026-06-01
 ---
 

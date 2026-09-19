@@ -1,6 +1,6 @@
 ---
 title: วิธีสังเกตอีเมลหลอกลวง (Phishing) และการรับมือ
-url: https://help.example.com/phishing
+url:
 date: 2026-06-01
 ---
 
