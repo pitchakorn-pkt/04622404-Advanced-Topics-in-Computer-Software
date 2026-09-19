@@ -94,7 +94,9 @@ def test_classifier_out_of_scope_goes_to_decline(calls, monkeypatch):
         return engine_result("หมวด", label="out_of_scope", score=0.91)
 
     monkeypatch.setattr(clients, "classify", classify_oos)
-    assert decide("ราคาทองวันนี้เท่าไหร่").route == "decline"
+    # CONTRACT v1.5 §3: out_of_scope คือ "เฉพาะ" คำขอที่ผิดกฎหมาย/ทำร้ายผู้อื่นเท่านั้น
+    # เรื่องที่แค่ไม่เกี่ยวกับ IT (แปลภาษา สูตรอาหาร คำนวณภาษี) เป็น general_other -> general_ai
+    assert decide("ขอวิธีปลอมใบรับรองแพทย์").route == "decline"
 
 
 def test_classifier_below_threshold_falls_to_llm(calls, monkeypatch):
