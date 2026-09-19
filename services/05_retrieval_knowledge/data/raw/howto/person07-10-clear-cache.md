@@ -1,6 +1,6 @@
 ---
 title: วิธีเคลียร์ Cache เบราว์เซอร์ แก้ปัญหาเข้าเว็บไม่ได้
-url: https://help.example.com/clear-cache
+url:
 date: 2026-06-01
 ---
 

@@ -258,7 +258,7 @@ JWT_SECRET_KEY=  JWT_EXPIRE_MINUTES=480  MAX_UPLOAD_MB=10
 # retrieval
 EMBEDDING_MODEL=intfloat/multilingual-e5-base  INDEX_DIR=/data/index  HF_HOME=/models
 # generation
-GENERATION_TEMPERATURE=0.3  MAX_OUTPUT_TOKENS=1024  MODERATION_ENABLED=true
+GENERATION_TEMPERATURE=0.3  MAX_OUTPUT_TOKENS=2048  MODERATION_ENABLED=true
 ```
 (ค่าจริงของ model name ให้เจ้าของ service ยืนยันใน `.env.example` วัน D2)
 
@@ -281,9 +281,15 @@ GENERATION_TEMPERATURE=0.3  MAX_OUTPUT_TOKENS=1024  MODERATION_ENABLED=true
    → **อย่า hardcode ชื่อโมเดลในโค้ด** อ่านจาก `GROQ_MODEL` เสมอ และตอน startup ให้ยิงคำถามสั้น ๆ หนึ่งครั้งเช็กว่าโมเดลยังอยู่ ถ้าไม่อยู่ให้ขึ้น log เตือนชัด ๆ ไม่ใช่รอให้ล้มตอนมีผู้ใช้
 2. **free tier จำกัดจำนวนคำขอต่อนาที** และเราแปดคน — **ตอน dev ทุกคนใช้ key ของตัวเอง** (สมัครฟรีที่ console ของ Groq) แล้วค่อยใช้ key กลางของทีมเฉพาะวันสาธิต
 3. **Groq ไม่มีระบบ safety ฝั่งผู้ให้บริการแบบ Gemini** ไม่มี safety settings ให้ตั้งและไม่มีเหตุผลการบล็อกกลับมา → โมดูล 06 ต้องพึ่งการตรวจของตัวเองเป็นหลัก (กฎใน prompt + regex + ตรวจ `finish_reason`) ห้ามคิดว่าผู้ให้บริการกรองให้แล้ว
-4. **ข้อดีที่ควรใช้ประโยชน์**: Groq เร็วกว่าเจ้าอื่นมาก คอขวดของเราจะเป็น rate limit ไม่ใช่ความเร็ว → งบเวลา 70 วินาทีของ router จะเหลือเฟือ เอาเวลาที่ประหยัดได้ไปทำ reranking หรือ citation check เพิ่มได้
+5. **`gpt-oss-120b` ใช้ token ไปกับการคิดก่อนตอบ และนับรวมใน `max_tokens`** (วัดจริง 19 ก.ย.) ค่า default คิดเยอะจนคำตอบ JSON ของ router เกิน 300 token แล้ว Groq ตอบ `400 json_validate_failed` และคำตอบ RAG โดนตัดที่ 1024 กลางประโยค
+   → ทุกจุดที่เรียก Groq ให้ส่ง `extra_body={"reasoning_effort": "low"}` (ส่งเฉพาะตอน provider เป็น groq) วัดแล้ว route ยังถูกเท่าเดิม ใช้ token น้อยลง ~4 เท่าและเร็วขึ้น
+   → `max_tokens` ของคำตอบ JSON สั้น ๆ ≥ 1024 · คำตอบยาวใช้ `MAX_OUTPUT_TOKENS` (2048) · เช็ก `finish_reason == "length"` แล้ว log ไว้ทุกครั้ง อย่าส่งคำตอบที่ขาดกลางประโยคโดยไม่รู้ตัว
+6. **8,000 token/นาที ต่อ key** — คำถาม RAG หนึ่งข้อใช้ ~3,000–6,000 token (router + generation) แปลว่า key เดียวรับได้แค่ ~2 คำถามต่อนาที เกินแล้วได้ 429
+   → ต้องมี `GEMINI_API_KEY` เป็นตัวสำรองวันสาธิต · ถ้าตัวสำรองไม่มี key ให้ข้ามไปเลย อย่ายิงแล้วได้ 400 ซ้อนอีกชั้น
+7. **ข้อดีที่ควรใช้ประโยชน์**: Groq เร็วกว่าเจ้าอื่นมาก คอขวดของเราจะเป็น rate limit ไม่ใช่ความเร็ว → งบเวลา 70 วินาทีของ router จะเหลือเฟือ เอาเวลาที่ประหยัดได้ไปทำ reranking หรือ citation check เพิ่มได้
 
 ## Changelog
+- **v1.6 (19 ก.ย. 2026)** — §7 กับดักของ Groq เพิ่มข้อ 5–6 จากการวัดด้วย key จริง (gpt-oss คิดกิน `max_tokens` → ส่ง `reasoning_effort=low` · 8,000 token/นาที → ต้องมีตัวสำรอง) · `MAX_OUTPUT_TOKENS` 1024 → 2048 ไม่มี field ไหนเปลี่ยน
 - **v1.5 (19 ก.ย. 2026)** — §3 เขียนความหมายของ `general_other` / `out_of_scope` ให้ชัด ไม่เปลี่ยนชื่อหมวดหรือตาราง map
   - คำว่า "นอกขอบเขต" ของเดิมทำให้งานทั่วไป (เขียนอีเมล แปลภาษา) ถูกติดป้าย `out_of_scope` แล้วโดนปฏิเสธ ทั้งที่ golden set กำหนดให้เป็น `general_ai`
 - **v1.4 (D1)** — **เปลี่ยน LLM หลักเป็น Groq** (Gemini/OpenAI ยังเป็นตัวสำรองเหมือนเดิม)

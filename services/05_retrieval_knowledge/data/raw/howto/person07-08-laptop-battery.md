@@ -1,6 +1,6 @@
 ---
 title: วิธียืดอายุแบตเตอรี่โน้ตบุ๊กให้ใช้งานได้นานขึ้น
-url: https://help.example.com/battery-life
+url:
 date: 2026-06-01
 ---
 
