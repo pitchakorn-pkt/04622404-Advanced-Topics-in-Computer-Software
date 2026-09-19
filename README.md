@@ -122,8 +122,20 @@ Windows ส่วนใหญ่ไม่มีมาให้ และ macOS �
 | `make logs s=router` | `docker compose logs -f --tail=100 router` |
 | `make rebuild s=router` | `docker compose build --no-cache router && docker compose up -d router` |
 | `make smoke` | `bash scripts/smoke_test.sh` |
+| `make warmup` | `docker compose run --rm retrieval python -c "import os; from huggingface_hub import snapshot_download; snapshot_download(os.environ['EMBEDDING_MODEL'])"` |
 | `make ingest` | `docker compose run --rm retrieval python ingest.py` |
 | `make eval` | `python3 scripts/eval_e2e.py` |
+
+### ถ้าใช้ Windows
+
+| เรื่อง | ทำแบบนี้ |
+|---|---|
+| ที่ clone repo | ไว้ที่ `C:\dev\chuayduay` **อย่าไว้ใน OneDrive หรือโฟลเดอร์ที่มีเว้นวรรค** — OneDrive ล็อกไฟล์ตอน sync และ docker mount โฟลเดอร์พวกนั้นแล้วพัง |
+| รัน `.sh` | ใช้ **Git Bash** `bash scripts/smoke_test.sh` (PowerShell รัน `.sh` ไม่ได้) · repo ตั้ง `.gitattributes` ให้ `.sh` เป็น LF แล้ว ถ้าเคย clone ก่อนหน้านี้แล้วเจอ `$'\r': command not found` ให้ลบไฟล์นั้นแล้วดึงใหม่ครั้งเดียว `rm scripts/smoke_test.sh && git checkout -- scripts/smoke_test.sh` |
+| `curl` ใน PowerShell | พิมพ์ `curl.exe` ไม่ใช่ `curl` (`curl` ใน PowerShell คือ `Invoke-WebRequest` คนละตัว) |
+| ตั้งตัวแปรก่อนรันคำสั่ง | PowerShell: `$env:API_URL="http://localhost:8000"; npm run dev` (แบบ `API_URL=... npm run dev` ใช้ได้แค่ใน Git Bash) |
+| Python | ใช้ `python` แทน `python3` · เปิด venv ด้วย `.venv\Scripts\activate` แทน `source .venv/bin/activate` |
+| port 5432 ชน | ถ้าเครื่องลง PostgreSQL ไว้แล้ว `docker compose up` จะขึ้น `port is already allocated` → ปิด service PostgreSQL ใน Services ของ Windows ก่อน |
 
 ---
 
