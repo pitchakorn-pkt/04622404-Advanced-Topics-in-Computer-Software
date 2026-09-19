@@ -8,6 +8,10 @@
 + cache ต่อ process ใช้ clf.predict_proba() ตรงๆ (ไม่ใช่ softmax เอง — แก้ตาม
 code review ของ PR #8 ที่พบว่า score จาก decision_function เดิมต่ำเกินไปจน
 ไม่ถึงเกณฑ์ CONTRACT ที่ router ต้องการ score >= 0.75 เลยแม้แต่ข้อเดียว)
+กรณีโมเดลโหลดไม่ได้ ตอบ 503 ด้วย JSONResponse ตรงๆ (ไม่ใช่
+raise HTTPException(detail=...)) เพราะ FastAPI ห่อ detail เป็น
+{"detail": {...}} อัตโนมัติ ทำให้ response ไม่ตรง error format ตาม
+CONTRACT §0 (พบจาก code review PR #8 เช่นกัน)
 สำคัญ: ต้องมี nlp_utils.py (โฟลเดอร์เดียวกับ train.py) อยู่บน sys.path ตอนรัน
 service นี้ด้วย — joblib.load ต้อง import nlp_utils เพื่อคืนค่า thai_tokenizer
 ที่ฝังอยู่ใน vectorizer ที่เซฟไว้ ถ้าหาไม่เจอ /local/classify จะพังเป็น 500
@@ -19,7 +23,8 @@ from pathlib import Path
 
 import joblib
 import numpy as np
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from openai import APIConnectionError, APIStatusError, APITimeoutError, AsyncOpenAI
 
 from .common import error_body, forward_headers, health_payload, jlog, request_id_middleware  # noqa: F401
@@ -220,11 +225,14 @@ async def classify(req: ClassifyRequest):
     except Exception as e:  # noqa: BLE001 — ครอบคลุมทั้งไฟล์หาไม่เจอและ unpickle ล้ม
         # unpickle ล้มบ่อยสุดเพราะ nlp_utils.py (thai_tokenizer) หาไม่เจอตอน
         # joblib.load — ดู docstring บนสุดของไฟล์นี้
+        # ใช้ JSONResponse คืนตรงๆ (ไม่ใช่ raise HTTPException(detail=...)) เพราะ
+        # FastAPI ห่อ detail เป็น {"detail": {...}} อัตโนมัติ ทำให้ response จริง
+        # มีชั้นซ้อนเกิน ไม่ตรงกับ error format ตาม CONTRACT §0 (พบจาก code review PR #8)
         jlog(event="classify_model_missing", error=str(e))
-        raise HTTPException(
+        return JSONResponse(
             status_code=503,
-            detail=error_body("MODEL_NOT_LOADED", "โมเดล intent classifier ยังไม่พร้อมใช้งาน"),
-        ) from e
+            content=error_body("MODEL_NOT_LOADED", "โมเดล intent classifier ยังไม่พร้อมใช้งาน"),
+        )
 
     vectorizer, clf = bundle["vectorizer"], bundle["classifier"]
 

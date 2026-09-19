@@ -15,6 +15,12 @@ app/main.py ที่ joblib.load ทีหลังจากคนละ proces
 PR #8) แก้โดยครอบ LinearSVC ด้วย CalibratedClassifierCV (Platt scaling ผ่าน
 cv=5) แล้วใช้ .predict_proba() ตรงๆ ซึ่งให้ค่าที่ใช้งานได้จริงตามเกณฑ์ 0.75
 
+หมายเหตุ FULL-DATA FIT (สำคัญ): โมเดลที่เซฟลง models/intent_v1.joblib เทรน
+ด้วยข้อมูลทั้งหมด 100% (ไม่ใช่แค่ 80% ที่ train_test_split กันไว้) — ส่วน
+train/test split ยังใช้วัด accuracy/confusion matrix ตามปกติ (วัดบนข้อมูลที่
+โมเดลไม่เคยเห็น) แต่โมเดลตัวจริงที่ deploy ควร fit ด้วยทุกแถวที่มี (พบจาก
+code review PR #8)
+
 รันด้วย:
     python train.py
 ผลลัพธ์:
@@ -173,8 +179,22 @@ def main() -> None:
         print(f"{label[:20]:<22}" + " ".join(f"{v:>10}" for v in row))
 
     MODEL_DIR.mkdir(exist_ok=True)
-    joblib.dump({"vectorizer": vectorizer, "classifier": clf}, MODEL_PATH)
-    print(f"\nเซฟโมเดลแล้วที่ {MODEL_PATH}")
+
+    # สำคัญ: โมเดลที่เซฟไว้ใช้งานจริงต้อง fit ด้วยข้อมูลทั้งหมด 100% ไม่ใช่แค่
+    # ส่วน train (80%) ที่ใช้ประเมินผลด้านบน — 20% ที่กันไว้เป็น test set ก็มี
+    # ข้อมูลมีค่าที่ไม่ควรทิ้งไปตอนเทรนโมเดลตัวจริง (พบจาก code review PR #8)
+    # ตัวเลข accuracy/confusion matrix ด้านบนยังใช้ split เดิมได้ตามปกติ เพราะ
+    # เป็นการวัดผลบนข้อมูลที่โมเดลไม่เคยเห็น แต่โมเดลที่ deploy จริงควรใช้ข้อมูล
+    # ทุกแถวที่มี
+    print("\n" + "=" * 60)
+    print("เทรนโมเดลตัวจริงที่จะเซฟด้วยข้อมูลทั้งหมด 100% (ไม่ใช่แค่ 80% ที่ split ไว้เทส)")
+    print("=" * 60)
+    final_vectorizer = build_vectorizer()
+    final_clf = build_classifier()
+    final_clf.fit(final_vectorizer.fit_transform(texts), labels)
+
+    joblib.dump({"vectorizer": final_vectorizer, "classifier": final_clf}, MODEL_PATH)
+    print(f"เซฟโมเดลแล้วที่ {MODEL_PATH}")
 
     print("\n" + "=" * 60)
     print(f"สรุปตาม Definition of Done: CV accuracy เฉลี่ย {CV_FOLDS}-fold = "
