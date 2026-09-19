@@ -252,22 +252,22 @@ async def handle_grounded(req: GenerateRequest) -> GenerateResponse:
     temperature = float(os.getenv("GENERATION_TEMPERATURE", "0.2"))
     max_tokens = int(os.getenv("MAX_OUTPUT_TOKENS", "2048"))
 
-    # เตรียม Context และ Prompt สำหรับ grounded
-    context_str = ""
-    if req.contexts:
-        context_blocks = []
-        for ctx in req.contexts:
-            ref_id = getattr(ctx, 'ref', '')
-            text = getattr(ctx, 'text', '')
-            context_blocks.append(f"[{ref_id}] {text}")
-        context_str = "\n".join(context_blocks)
+    if not req.contexts:
+        return GenerateResponse(
+            request_id=req.request_id,
+            answer="ขออภัย ไม่พบข้อมูลที่เพียงพอในคลังความรู้สำหรับตอบคำถามนี้",
+            sources=[],
+            blocked=False,
+            block_reason=None,
+            model="none",
+            latency_ms=int((time.perf_counter() - start_time) * 1000),
+            token_usage=TokenUsage(),
+        )
 
-    prompt = (
-        "คุณคือระบบผู้ช่วยตอบปัญหาไอที 'ช่วยด้วย'\n"
-        "โปรดตอบคำถามของผู้ใช้โดยอ้างอิงข้อมูลจากเอกสารบริบท (Context) ที่กำหนดให้อย่างแม่นยำ "
-        "และระบุเลขบริบทอ้างอิงแบบ [n] ท้ายประโยคที่ใช้อ้างอิงเสมอ หากบริบทไม่พอตอบ ให้ตอบตามความเป็นจริง:\n\n"
-        f"เอกสารบริบท:\n{context_str}\n\n"
-        f"คำถาม/ร่างคำตอบ: {req.draft or ''}"
+    prompt = jinja_env.get_template("grounded.j2").render(
+        contexts=req.contexts,
+        history=req.history,
+        query=req.query,
     )
 
     # ข้อ 3: วนลูปตามลำดับ LLM_PRIMARY -> LLM_FALLBACK
@@ -352,93 +352,3 @@ async def handle_grounded(req: GenerateRequest) -> GenerateResponse:
         latency_ms=latency,
         token_usage=TokenUsage(),
     )
-
-
-async def handle_grounded(req: GenerateRequest) -> GenerateResponse:
-    """mode grounded: เรียก LLM เขียนคำตอบจาก contexts พร้อม [n] ที่ตรวจสอบได้จริง"""
-    start_time = time.perf_counter()
-
-    if not req.contexts:
-        latency = int((time.perf_counter() - start_time) * 1000)
-        return GenerateResponse(
-            request_id=req.request_id,
-            answer="ขออภัย ไม่พบข้อมูลที่เพียงพอในคลังความรู้สำหรับตอบคำถามนี้",
-            sources=[],
-            blocked=False,
-            block_reason=None,
-            model="none",
-            latency_ms=latency,
-            token_usage=TokenUsage(),
-        )
-
-    temperature = float(os.getenv("GENERATION_TEMPERATURE", "0.3"))
-    max_tokens = int(os.getenv("MAX_OUTPUT_TOKENS", "1024"))
-
-    template = jinja_env.get_template("grounded.j2")
-    rendered_prompt = template.render(
-        contexts=req.contexts,
-        history=req.history,
-        query=req.query,
-    )
-
-    try:
-        # ข้อ 1: ย้าย get_llm_client() เข้ามาไว้ภายใน try block
-        client, model_name = get_llm_client()
-
-        response = await client.chat.completions.create(
-            model=model_name,
-            messages=[{"role": "user", "content": rendered_prompt}],
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
-
-        choice = response.choices[0]
-        if choice.finish_reason == "content_filter":
-            latency = int((time.perf_counter() - start_time) * 1000)
-            return GenerateResponse(
-                request_id=req.request_id,
-                answer="เนื้อหาถูกระงับเนื่องจากเงื่อนไขความปลอดภัยของระบบ",
-                sources=[],
-                blocked=True,
-                block_reason="content_filter",
-                model=model_name,
-                latency_ms=latency,
-                token_usage=TokenUsage(),
-            )
-
-        raw_answer = choice.message.content or ""
-        cleaned_answer, cited_sources = verify_and_clean_citations(raw_answer, req.contexts)
-        final_answer = mask_pii(cleaned_answer)
-
-        usage = TokenUsage()
-        if response.usage:
-            usage = TokenUsage(
-                input=response.usage.prompt_tokens,
-                output=response.usage.completion_tokens,
-            )
-
-        latency = int((time.perf_counter() - start_time) * 1000)
-        return GenerateResponse(
-            request_id=req.request_id,
-            answer=final_answer.strip(),
-            sources=cited_sources,
-            blocked=False,
-            block_reason=None,
-            model=model_name,
-            latency_ms=latency,
-            token_usage=usage,
-        )
-    except Exception as e:
-        # ข้อ 2: บันทึกลง Log แต่คืนค่า blocked=False, block_reason=None
-        jlog(event="llm_error", mode="grounded", error=str(e))
-        latency = int((time.perf_counter() - start_time) * 1000)
-        return GenerateResponse(
-            request_id=req.request_id,
-            answer="เกิดข้อผิดพลาดในการเชื่อมต่อกับระบบประมวลผลภาษา กรุณาลองใหม่อีกครั้ง",
-            sources=[],
-            blocked=False,
-            block_reason=None,
-            model="error",
-            latency_ms=latency,
-            token_usage=TokenUsage(),
-        )
