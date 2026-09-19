@@ -2,14 +2,18 @@
 
     python3 scripts/eval_e2e.py            (หรือ make eval)
 
-STUB: โครงพร้อมแล้ว แต่ยังวัดได้แค่ route accuracy กับ latency
-ตอนมีของจริงให้เติม hit@5 ของ retrieval และ % คำตอบที่มี citation ถูก
+วัด route accuracy, % คำตอบสาย RAG ที่มีแหล่งอ้างอิงจริง (sources ไม่ว่าง) และ latency
+
+Groq free tier ได้ 8,000 token/นาที คำถาม RAG ข้อละ ~3,000-6,000 token ถ้ายิงติดกันจะโดน 429
+แล้ว router ถอยไป clarify ทำให้ตัวเลขผิด — ตั้ง EVAL_SLEEP เว้นระยะต่อข้อ (วินาที)
+    EVAL_SLEEP=30 python3 scripts/eval_e2e.py
 
 ห้าม hardcode ตัวเลขลงรายงานเด็ดขาด ทุกเลขต้องมาจากการรันจริง
 """
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import statistics
 import sys
@@ -17,6 +21,7 @@ import time
 import urllib.request
 
 API = "http://localhost:8000"
+SLEEP = float(os.getenv("EVAL_SLEEP", "0"))
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 GOLDEN = ROOT / "eval" / "golden.jsonl"
 if not GOLDEN.exists():
@@ -46,13 +51,14 @@ def main() -> int:
         t0 = time.perf_counter()
         try:
             _, d = post("/api/chat", {"session_id": None, "message": it["question"], "file_ids": []}, cookie)
-            got, answer = d.get("route", ""), d.get("answer", "")
+            got, sources = d.get("route", ""), d.get("sources") or []
         except Exception as exc:
-            got, answer = f"error: {exc}", ""
+            got, sources = f"error: {exc}", []
         ms = int((time.perf_counter() - t0) * 1000)
         lat.append(ms)
         rows.append({**it, "got_route": got, "ok": got == it["expected_route"],
-                     "latency_ms": ms, "has_citation": "[1]" in answer})
+                     "latency_ms": ms, "has_citation": bool(sources)})
+        time.sleep(SLEEP)
 
     acc = sum(r["ok"] for r in rows) / len(rows) if rows else 0.0
     cited = sum(r["has_citation"] for r in rows if r["expected_route"] == "university_rag")
