@@ -30,7 +30,7 @@ jinja_env = jinja2.Environment(
 )
 
 # PII Regex Patterns for Thai Data
-REGEX_THAI_NATIONAL_ID = re.compile(r"(?<!\d)[1-9]\d{12}(?!\d)")
+REGEX_THAI_NATIONAL_ID = re.compile(r"(?<![\d-])[1-9][- ]?\d{4}[- ]?\d{5}[- ]?\d{2}[- ]?\d(?![\d-])")
 REGEX_PHONE_NUMBER = re.compile(r"(?<!\d)0[689](?:-?\d){8}(?!\d)|(?<!\d)0[23457](?:-?\d){7}(?!\d)")
 REGEX_EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b")
 
@@ -72,12 +72,23 @@ def mask_pii(text: str) -> str:
     return text
 
 
+# 1. อัปเดต REGEX เลขบัตรประชาชนรองรับขีด/เว้นวรรค
+REGEX_THAI_NATIONAL_ID = re.compile(r"(?<![\d-])[1-9][- ]?\d{4}[- ]?\d{5}[- ]?\d{2}[- ]?\d(?![\d-])")
+
 def verify_and_clean_citations(
     answer: str, available_contexts: List[Any]
 ) -> Tuple[str, List[Source]]:
     """ดึง [n] ทั้งหมดจากคำตอบ -> ลบเลขที่ไม่มีใน contexts -> คืน sources เฉพาะที่ถูกอ้างจริง"""
-    # ข้อ 1: แปลงวงเล็บอ้างอิงภาษาจีน/เอเชีย 【1】 ให้กลายเป็น [1] ก่อนทำการสแกน
+    
+    # [1] แปลงวงเล็บอ้างอิงภาษาจีน/เอเชีย 【1】 -> [1]
     answer = re.sub(r"【\s*(\d+)\s*】", r"[\1]", answer)
+
+    # [2] แปลงรูปแบบอ้างอิงกลุ่ม [1, 2, 3] -> [1][2][3]
+    answer = re.sub(
+        r"\[(\d+(?:\s*,\s*\d+)+)\]",
+        lambda m: "".join(f"[{n.strip()}]" for n in m.group(1).split(",")),
+        answer
+    )
 
     valid_refs = {ctx.ref: ctx.source for ctx in available_contexts if getattr(ctx, 'ref', None) is not None}
     found_refs = set()
@@ -91,8 +102,6 @@ def verify_and_clean_citations(
 
     # ตรวจจับ pattern [1], [2]
     cleaned_answer = re.sub(r"\[(\d+)\]", replace_citation, answer)
-    
-    # รักษาระยะ Indent ของ Markdown list
     cleaned_answer = re.sub(r"(?<=\S) {2,}", " ", cleaned_answer)
 
     ordered_sources = [valid_refs[ref_num] for ref_num in sorted(found_refs)]
