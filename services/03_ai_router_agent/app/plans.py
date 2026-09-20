@@ -171,7 +171,8 @@ async def _rag(decision: Decision, query: str, history: list[dict], file_text: s
 
     # 05 คืน chunk มาแล้วก็จริง แต่ 06 เรียบเรียงไม่ได้ (คำถามนอกคลัง หรือคนละภาษา)
     # ถ้าจบตรงนี้ผู้ใช้จะไม่ได้อะไรเลย ทั้งที่ยังตอบด้วยความรู้ทั่วไปได้ — ถอยเหมือนเคส chunks ว่าง
-    if not sources and any(answer.startswith(p) for p in NO_ANSWER_PREFIXES):
+    # ดูช่วงต้นของคำตอบ ไม่ผูกกับตำแหน่งแรกเป๊ะ ๆ เพราะ LLM เติมคำนำหน้าได้ ("ขออภัยครับ ...")
+    if not sources and any(p in answer[:120] for p in NO_ANSWER_PREFIXES):
         jlog(event="rag_dead_end", query_len=len(query), chunks=len(contexts))
         return await _fall_back_to_general(
             out, "เอกสารที่ค้นเจอไม่พอให้เรียบเรียงคำตอบ จึงตอบจากความรู้ทั่วไปแทน",
