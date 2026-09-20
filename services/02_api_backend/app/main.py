@@ -18,7 +18,7 @@ import jwt
 
 from uuid import UUID
 
-from fastapi import BackgroundTasks, Cookie, Depends, FastAPI, HTTPException, Response
+from fastapi import BackgroundTasks, Cookie, Depends, FastAPI, HTTPException, Query, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -231,7 +231,7 @@ async def feedback(body: FeedbackRequest, user: dict = Depends(_user_from_cookie
 
 
 @app.get("/api/stats")
-async def stats(days: int = 7, user: dict = Depends(_user_from_cookie)):
+async def stats(days: int = Query(7, ge=1), user: dict = Depends(_user_from_cookie)):
     return await _rlog("GET", "/stats", params={"days": days})
 
 
