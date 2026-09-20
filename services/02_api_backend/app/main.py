@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import asyncio
 import httpx
 import jwt
@@ -66,9 +66,10 @@ async def _validation_error(request, exc: RequestValidationError):
     return JSONResponse(status_code=422, content=error_body(
         "VALIDATION_ERROR", f"ข้อมูลไม่ถูกต้อง: {', '.join(fields)}"))
 
-def _now() -> str:
-    return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+BKK = timezone(timedelta(hours=7))
 
+def _now() -> str:
+    return datetime.now(BKK).isoformat(timespec="seconds")
 
 async def _user_from_cookie(access_token: str | None = Cookie(default=None)) -> dict:
     if not access_token:
