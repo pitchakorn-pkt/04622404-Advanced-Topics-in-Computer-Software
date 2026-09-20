@@ -28,10 +28,14 @@ class FakeUser:
         for key, value in data.items():
             setattr(self, key, value)
 
+@pytest.fixture(autouse=True)
+def reset_rate_limit():
+    main._rate_hits.clear()
+    yield
+    main._rate_hits.clear()
 
 @pytest.fixture
 def upstream():
-    """ปรับพฤติกรรมของ router และ 07 ในแต่ละเทสผ่าน dict นี้"""
     return {"router": "ok", "rlog": "ok", "calls": []}
 
 
@@ -54,7 +58,7 @@ def _handler(state):
                 "request_id": body["request_id"], "answer": "ลองปิดเปิดไวไฟดูครับ [1]",
                 "sources": [], "route": "university_rag",
                 "engines_used": ["retrieval", "generation"],
-                "confidence": None,                       # จงใจส่ง null มาทดสอบ
+                "confidence": None,
                 "reasoning": "ชั้น rules", "latency_ms": 120,
                 "token_usage": {"input": 10, "output": 20},
                 "trace": {"decided_at_layer": "rules", "steps": []},

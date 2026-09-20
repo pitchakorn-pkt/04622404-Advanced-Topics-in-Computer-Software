@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import uuid
+import time
 
+from app import main
 from .conftest import DEMO_PASSWORD, OTHER_SESSION, OWNED_SESSION
 
 NEW_CHAT = {"session_id": None, "message": "ต่อไวไฟไม่ได้", "file_ids": []}
@@ -170,3 +172,30 @@ def test_stats_days_must_be_at_least_one(logged_in):
 def test_feedback_rating_must_be_1_or_minus_1(logged_in):
     r = logged_in.post("/api/feedback", json={"message_id": str(uuid.uuid4()), "rating": 2})
     assert_error_shape(r, 422)
+
+
+def test_rate_limit_blocks_after_quota(logged_in, monkeypatch):
+    monkeypatch.setattr(main, "CHAT_RATE_LIMIT", 3)
+    for _ in range(3):
+        assert logged_in.post("/api/chat", json=NEW_CHAT).status_code == 200
+    r = logged_in.post("/api/chat", json=NEW_CHAT)
+    assert_error_shape(r, 429)
+    assert int(r.headers["retry-after"]) > 0
+
+
+def test_rate_limit_is_per_user(logged_in, monkeypatch):
+    monkeypatch.setattr(main, "CHAT_RATE_LIMIT", 2)
+    for _ in range(2):
+        logged_in.post("/api/chat", json=NEW_CHAT)
+    assert logged_in.post("/api/chat", json=NEW_CHAT).status_code == 429
+    main._rate_hits.clear()                      # เหมือนมีผู้ใช้อีกคนที่ยังไม่ได้ถาม
+    assert logged_in.post("/api/chat", json=NEW_CHAT).status_code == 200
+
+
+def test_rate_limit_window_expires(logged_in, monkeypatch):
+    monkeypatch.setattr(main, "CHAT_RATE_LIMIT", 1)
+    monkeypatch.setattr(main, "RATE_WINDOW", 0.2)
+    assert logged_in.post("/api/chat", json=NEW_CHAT).status_code == 200
+    assert logged_in.post("/api/chat", json=NEW_CHAT).status_code == 429
+    time.sleep(0.25)
+    assert logged_in.post("/api/chat", json=NEW_CHAT).status_code == 200

@@ -28,6 +28,8 @@ RLOG = os.getenv("RESPONSE_LOG_URL", "http://response-log:8000")
 SECRET = os.getenv("JWT_SECRET_KEY", "dev-only-change-me")
 T_ROUTER = 75.0   # ต้องมากกว่างบรวมของ router (70s) ตาม CONTRACT ข้อ 0
 T_RLOG = 5.0
+CHAT_RATE_LIMIT = 10
+RATE_WINDOW = 60.0
 
 ERROR_CODES = {
     400: "BAD_REQUEST", 401: "UNAUTHORIZED", 404: "NOT_FOUND", 405: "METHOD_NOT_ALLOWED",
@@ -56,7 +58,7 @@ app.middleware("http")(request_id_middleware)
 @app.exception_handler(StarletteHTTPException)
 async def _http_error(request, exc: StarletteHTTPException):
     code = ERROR_CODES.get(exc.status_code, "ERROR")
-    return JSONResponse(status_code=exc.status_code,
+    return JSONResponse(status_code=exc.status_code, headers=getattr(exc, "headers", None),
                         content=error_body(code, str(exc.detail)))
 
 
@@ -107,11 +109,26 @@ async def logout(response: Response):
 async def me(user: dict = Depends(_user_from_cookie)):
     return {"user": user}
 
+_rate_hits: dict[str, list[float]] = {}
+
+
+def _check_rate_limit(user_id: str) -> None:
+    now = time.monotonic()
+    hits = [t for t in _rate_hits.get(user_id, []) if now - t < RATE_WINDOW]
+    if len(hits) >= CHAT_RATE_LIMIT:
+        _rate_hits[user_id] = hits
+        retry_after = int(RATE_WINDOW - (now - hits[0])) + 1
+        raise HTTPException(status_code=429,
+                            detail=f"ถามถี่เกินไป ลองใหม่อีกครั้งในอีก {retry_after} วินาที",
+                            headers={"Retry-After": str(retry_after)})
+    hits.append(now)
+    _rate_hits[user_id] = hits
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(body: ChatRequest, bg: BackgroundTasks,
                user: dict = Depends(_user_from_cookie)):                    # 1
     t0 = time.perf_counter()
+    _check_rate_limit(user["id"])                                           # 2
     assert _client is not None
     h = forward_headers()
     session_id = str(body.session_id) if body.session_id else str(uuid.uuid4())                       # 3 (07 สร้างแถวให้เอง)
