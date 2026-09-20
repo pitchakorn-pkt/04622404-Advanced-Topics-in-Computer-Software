@@ -5,11 +5,33 @@
 เป็นระบบ **agentic RAG** แยกเป็น 8 โมดูลที่คุยกันผ่าน HTTP รันทั้งระบบด้วย Docker Compose คำสั่งเดียว
 งานรายวิชา **04622404 Advanced Topics in Computer Software — DL-06 Agentic AI System I**
 
-```bash
-cp .env.example .env && make up && make smoke      # ขึ้นทั้งระบบแล้วทดสอบทั้งเส้น
-```
+---
 
-เปิด http://localhost:3000 · ผู้ใช้ตัวอย่าง `student` / `student`
+## ทีม
+
+8 คน · 1 คนต่อ 1 โมดูล · หัวหน้าทีมดูแลโมดูล 08 และรวมงานทุกโมดูลเข้าด้วยกัน
+
+| โมดูล | ชื่อ–สกุล | รหัสนักศึกษา | GitHub |
+|---|---|---|---|
+| [01 Web App](services/01_web_app/) | Jakkrich Sriraksa | 116730462014-5 | [@jakkrich0912-web](https://github.com/jakkrich0912-web) |
+| [02 API Backend](services/02_api_backend/) | Karmolputh Phatarathorn | 116610462034-7 | [@Chakamon02](https://github.com/Chakamon02) |
+| [03 AI Router](services/03_ai_router_agent/) | Patcharanat Budploy | 116730462038-4 | [@Patcharanat23](https://github.com/Patcharanat23) |
+| [04 AI Engines](services/04_ai_model_selection/) | Pathumporn Jorrapong | 116730462009-5 | [@pathumpornjorrapong-ops](https://github.com/pathumpornjorrapong-ops) |
+| [05 Retrieval](services/05_retrieval_knowledge/) | Suphakorn Nonthong | 116730462028-5 | [@SoSick41](https://github.com/SoSick41) |
+| [06 LLM Generation](services/06_llm_generation/) | Phitphibul Phrompheak | 116730462030-1 | [@phitphibul67](https://github.com/phitphibul67) |
+| [07 Response / Log](services/07_response_logging/) | Jirapa Gongmool | 116730462008-7 | [@jirapa-gm](https://github.com/jirapa-gm) |
+| [08 Docker / Integration](08_monitoring_deployment/) | Pitchakorn Phuadkhunthod **(หัวหน้าทีม)** | 116730462035-0 | [@pitchakorn-pkt](https://github.com/pitchakorn-pkt) |
+
+| โมดูล | รับผิดชอบอะไร |
+|---|---|
+| **01 Web App** | หน้าเว็บที่ผู้ใช้เห็น — แชท แหล่งอ้างอิง ประวัติ ปุ่ม 👍👎 แผงแสดงการตัดสินใจของ agent |
+| **02 API Backend** | ประตูหน้าบ้าน — ล็อกอิน ตรวจ input ประกอบ context จำกัดอัตราการถาม แล้วส่งต่อให้ router |
+| **03 AI Router** | สมองของระบบ — ตัดสินใจว่าคำถามไป route ไหน ด้วย 4 ชั้น guard → rules → classifier → LLM |
+| **04 AI Engines** | General AI ผ่าน Groq พร้อมตัวสำรอง · Local AI โมเดลจำแนก 8 หมวดที่เทรนเอง |
+| **05 Retrieval** | เตรียมคลังความรู้และค้นแบบ hybrid BM25 + vector — ที่มาของแหล่งอ้างอิงทุกข้อ |
+| **06 LLM Generation** | เขียนคำตอบพร้อมเลขอ้างอิงที่ตรวจแล้ว · ด่านความปลอดภัยและปิดข้อมูลส่วนตัว |
+| **07 Response / Log** | ความจำของระบบ — เก็บบทสนทนา feedback และสรุปสถิติ |
+| **08 Docker / Integration** | รวม 7 โมดูลให้รันด้วยคำสั่งเดียว · Docker · smoke test และวัดผลทั้งระบบ · รีวิว PR |
 
 ---
 
@@ -104,34 +126,6 @@ make ingest              # สร้างดัชนีค้นหาจา�
 ```bash
 docker compose run --rm -u root retrieval chown -R 10001:10001 /data/index /models
 ```
-
----
-
-## ทีม
-
-8 คน · 1 คนต่อ 1 โมดูล · หัวหน้าทีมดูแลโมดูล 08 และรวมงานทุกโมดูลเข้าด้วยกัน
-
-| โมดูล | ชื่อ–สกุล | รหัสนักศึกษา | GitHub |
-|---|---|---|---|
-| [01 Web App](services/01_web_app/) | Jakkrich Sriraksa | 116730462014-5 | [@jakkrich0912-web](https://github.com/jakkrich0912-web) |
-| [02 API Backend](services/02_api_backend/) | Karmolputh Phatarathorn | 116610462034-7 | [@Chakamon02](https://github.com/Chakamon02) |
-| [03 AI Router](services/03_ai_router_agent/) | Patcharanat Budploy | 116730462038-4 | [@Patcharanat23](https://github.com/Patcharanat23) |
-| [04 AI Engines](services/04_ai_model_selection/) | Pathumporn Jorrapong | 116730462009-5 | [@pathumpornjorrapong-ops](https://github.com/pathumpornjorrapong-ops) |
-| [05 Retrieval](services/05_retrieval_knowledge/) | Suphakorn Nonthong | 116730462028-5 | [@SoSick41](https://github.com/SoSick41) |
-| [06 LLM Generation](services/06_llm_generation/) | Phitphibul Phrompheak | 116730462030-1 | [@phitphibul67](https://github.com/phitphibul67) |
-| [07 Response / Log](services/07_response_logging/) | Jirapa Gongmool | 116730462008-7 | [@jirapa-gm](https://github.com/jirapa-gm) |
-| [08 Docker / Integration](08_monitoring_deployment/) | Pitchakorn Phuadkhunthod **(หัวหน้าทีม)** | 116730462035-0 | [@pitchakorn-pkt](https://github.com/pitchakorn-pkt) |
-
-| โมดูล | รับผิดชอบอะไร |
-|---|---|
-| **01 Web App** | หน้าเว็บที่ผู้ใช้เห็น — แชท แหล่งอ้างอิง ประวัติ ปุ่ม 👍👎 แผงแสดงการตัดสินใจของ agent |
-| **02 API Backend** | ประตูหน้าบ้าน — ล็อกอิน ตรวจ input ประกอบ context จำกัดอัตราการถาม แล้วส่งต่อให้ router |
-| **03 AI Router** | สมองของระบบ — ตัดสินใจว่าคำถามไป route ไหน ด้วย 4 ชั้น guard → rules → classifier → LLM |
-| **04 AI Engines** | General AI ผ่าน Groq พร้อมตัวสำรอง · Local AI โมเดลจำแนก 8 หมวดที่เทรนเอง |
-| **05 Retrieval** | เตรียมคลังความรู้และค้นแบบ hybrid BM25 + vector — ที่มาของแหล่งอ้างอิงทุกข้อ |
-| **06 LLM Generation** | เขียนคำตอบพร้อมเลขอ้างอิงที่ตรวจแล้ว · ด่านความปลอดภัยและปิดข้อมูลส่วนตัว |
-| **07 Response / Log** | ความจำของระบบ — เก็บบทสนทนา feedback และสรุปสถิติ |
-| **08 Docker / Integration** | รวม 7 โมดูลให้รันด้วยคำสั่งเดียว · Docker · smoke test และวัดผลทั้งระบบ · รีวิว PR |
 
 ---
 
