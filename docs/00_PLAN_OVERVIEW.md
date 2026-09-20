@@ -64,7 +64,7 @@
 | 13 | ต้องไปหาเอกสารเองทั้งหมด และเขียน golden set เองทั้งหมด | 05 กลายเป็นคอขวด กว่าจะมี index ให้คนอื่นทดสอบก็ D4 และสุดท้ายไม่มีเวลาทำชุดวัดผล | นำคลัง Q&A ภาษาไทย 194 ข้อ + **golden set 60 ข้อพร้อมเฉลย** จากงาน RAG เดิมของหัวหน้ามาใช้เป็นฐาน (อาจารย์ยืนยันว่าใช้ข้อมูลอะไรก็ได้) แล้วเติมบทความ how-to ยาว 20 เรื่องจาก 04 และ 07 |
 
 ### ระดับความสำคัญ (MoSCoW) ทั้งระบบ
-- **Must (ไม่มี = สอบตก)**: ถามตอบได้ครบ 3 route หลัก + clarify/decline, RAG มี citation จริง, history + follow-up, feedback 👍👎, `docker compose up` คำสั่งเดียวรันได้
+- **Must (ไม่มี = สอบตก)**: ถามตอบได้ครบ 3 route หลัก + clarify/decline, RAG มี citation จริง, history + follow-up, feedback (ให้คะแนนคำตอบ), `docker compose up` คำสั่งเดียวรันได้
 - **Should (ทำให้ได้คะแนนดี)**: golden set + ตัวเลขผลวัด, dashboard สถิติ, อัปโหลด PDF แล้วถามได้, request_id tracing, fallback เมื่อ LLM ล่ม
 - **Could (ทำให้ "โหด")**: SSE streaming, reranker, Prometheus+Grafana, CI build อัตโนมัติ, HTTPS ผ่าน Caddy
 
@@ -178,7 +178,7 @@ retrieval ──> volume: chroma index + bm25 index + hf model cache
 | 1 | `GET /history?limit=10` คืนข้อความ **เก่าสุด** แทนที่จะเป็นล่าสุด | ไม่มี error เลย แค่ follow-up ตอบมั่วตอนบทสนทนายาว — มักเจอตอนสาธิตจริง | CONTRACT §6 ข้อ 1 + smoke test เคส 12 ข้อความ |
 | 2 | ไม่มีตาราง map หมวด classifier → route | 03 กับ 04 รอกันอยู่ D2–D3 แล้วต่างคนต่างเดา | ล็อกตารางใน CONTRACT §3 แล้ว |
 | 3 | โมเดล embedding 1.1GB โหลดตอน request แรก | เพื่อนรัน `make up` ครั้งแรกแล้วเจอ timeout นึกว่าโค้ดพัง | `make warmup` + ห้ามโหลดโมเดลแบบ blocking ใน startup |
-| 4 | กด 👍 เร็วกว่า log ลง DB → FK violation | โหวตหายเงียบ ๆ | `feedback.message_id` ห้ามเป็น FK (CONTRACT §6 ข้อ 4) |
+| 4 | กดให้คะแนนเร็วกว่า log ลง DB → FK violation | โหวตหายเงียบ ๆ | `feedback.message_id` ห้ามเป็น FK (CONTRACT §6 ข้อ 4) |
 | 5 | 02 ตรวจเจ้าของ session ไม่ได้ เพราะตารางเป็นของ 07 | ต่างคนต่างคิดว่าอีกฝ่ายตรวจ = ไม่มีใครตรวจ ใครเดา UUID ได้ก็อ่านแชทคนอื่น | ย้ายหน้าที่ไปที่ 07 ชัดเจน + ส่ง `user_id` ไปด้วย |
 | 6 | เวลารวมของ router ทะลุ 75s ที่ api รอ | api ตอบ 504 ทั้งที่ router กำลังจะตอบพอดี | งบรวม 70s + rewrite ≤ 10s |
 | 7 | label ใน `intents.csv` สะกดไม่ตรง CONTRACT | classifier ใช้ไม่ได้เลยแต่ไม่มี error — ตกไปเรียก LLM ทุกครั้ง quota หมดเร็ว | เทสต์ assert set ของ label |
