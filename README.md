@@ -37,19 +37,25 @@
 
 ## ผลที่วัดได้
 
-ทุกตัวเลขในหัวข้อนี้มาจากการรันจริงบนเครื่อง ไม่มีค่าที่พิมพ์เอง — รันซ้ำได้ด้วย `make smoke` และ `make eval`
+ทุกตัวเลขในหัวข้อนี้มาจากการรันจริงบนเครื่อง ไม่มีค่าที่พิมพ์เอง และทุกตารางระบุไว้ว่ารันซ้ำด้วยคำสั่งใด
 
-**ทั้งระบบ — ชุดทดสอบ 64 คำถาม เรียกผ่าน `/api/chat` เหมือนผู้ใช้จริง**
+### 1. ทั้งระบบ — ชุดทดสอบ 64 คำถาม เรียกผ่าน `/api/chat` เหมือนผู้ใช้จริง
 
-| ตัวชี้วัด | ค่า |
-|---|---|
-| เลือกเส้นทางถูก (route accuracy) | **85.9%** · 55/64 |
-| คำตอบสาย RAG ที่มีแหล่งอ้างอิงจริง | **51/60** |
-| เวลาตอบเฉลี่ย | **2.2 วินาที** |
-| เวลาตอบ p95 | **3.7 วินาที** |
-| คำขอที่ล้มเหลว | **0** |
+| ตัวชี้วัด | ค่า | วัดอะไร |
+|---|---|---|
+| เลือกเส้นทางถูก (route accuracy) | **85.9%** · 55/64 | router ส่งคำถามไป route ที่เฉลยระบุไว้ได้กี่ข้อ |
+| คำตอบสาย RAG ที่มีแหล่งอ้างอิงจริง | **51/60** | คำถามที่ควรตอบจากคลังความรู้ แล้วได้คำตอบที่แนบเลขอ้างอิงกลับมาจริง |
+| เวลาตอบเฉลี่ย | **2.2 วินาที** | นับตั้งแต่ส่งคำถามจนได้คำตอบครบ ผ่านทั้ง 7 service |
+| เวลาตอบ p95 | **3.7 วินาที** | ช้าที่สุดของ 95% แรก — ตัวบอกว่าเคสหนักยังอยู่ในเกณฑ์ |
+| คำขอที่ล้มเหลว | **0** | ไม่มีข้อไหนได้ error กลับมา · 9 ข้อที่ไม่ผ่านคือเลือก route ไม่ตรงเฉลย ไม่ใช่ระบบพัง |
 
-**การค้นคลังความรู้ — วัดกับ golden set ที่มีเฉลย**
+รันซ้ำด้วย `make eval` → เขียน `eval/report.md` และ `eval/report.html` ที่ลงรายละเอียดครบทั้ง 64 ข้อ
+
+<sub>ชุดนี้รันด้วย `gemini-3.5-flash-lite` เว้นระยะ 10 วินาทีต่อข้อ เพื่อกันโควตารายวันของ Groq ไว้ใช้วันนำเสนอ</sub>
+
+<sub>**อ่านเลข route accuracy ควบคู่กับสัดส่วนของชุดทดสอบ** — 64 ข้อนั้นเป็น `university_rag` 60 ข้อ ที่เหลือ `general_ai` / `local_ai` / `clarify` / `decline` หมวดละ 1 ข้อ ตั้งใจถ่วงไปทางคลังความรู้เพราะเป็นเส้นทางหลักที่ต้องมีแหล่งอ้างอิง ผลคือชุดนี้นำไปเทียบกับ benchmark ที่แบ่งหมวดเท่ากันไม่ได้ และ majority-class baseline ซึ่งตอบ `university_rag` ทุกข้อจะได้ 60/64 บนชุดนี้ · ส่วน "คำตอบสาย RAG ที่มีแหล่งอ้างอิงจริง" นับจาก 60 ข้อนั้นโดยตรง จึงไม่ได้รับผลจากสัดส่วนนี้</sub>
+
+### 2. การค้นคลังความรู้ — วัดกับ golden set 60 คำถามที่มีเฉลยว่าเอกสารไหนถูก
 
 | วิธีค้น | hit@1 | hit@5 | MRR |
 |---|---|---|---|
@@ -58,18 +64,21 @@
 | **hybrid (RRF) — ที่ระบบใช้จริง** | **0.4667** | **0.8500** | **0.6011** |
 | hybrid + cross-encoder rerank | 0.7167 | 0.9333 | 0.7978 |
 
-**ชุดทดสอบอัตโนมัติ**
+**hit@5** = เอกสารเฉลยติดอยู่ใน 5 อันดับแรกกี่เปอร์เซ็นต์ · **MRR** = ค่าเฉลี่ยของส่วนกลับของอันดับที่เจอเฉลย ยิ่งสูงแปลว่ายิ่งดันเฉลยขึ้นไปอยู่บน
+วัดบนคลังเต็ม 130 chunk · รันซ้ำด้วย `docker compose run --rm --no-deps retrieval python eval_retrieval.py` (ใช้เวลาราว 13 นาที เพราะแถว rerank ต้องรันโมเดลบน CPU)
 
-| ชุด | ผล |
-|---|---|
-| `make smoke` — ทั้งเส้นครบ 5 route + ประวัติ + สถิติ | **14/14** |
-| unit test ของ 03 AI Router | **87 ผ่าน** |
-| unit test ของ 02 API Backend | **31 ผ่าน** |
-| โมเดลจำแนกหมวดของ 04 (cross-validation) | **82.07%** |
+<sub>rerank ดีขึ้นจริงทั้งสามค่า แต่ปิดไว้เป็นค่าเริ่มต้น เหตุผลอยู่ในหัวข้อ "ข้อจำกัดที่รู้อยู่"</sub>
 
-<sub>ชุด 64 คำถามรันด้วย `gemini-3.5-flash-lite` เว้นระยะ 10 วินาทีต่อข้อ เพื่อกันโควตารายวันของ Groq ไว้ใช้วันนำเสนอ · cross-encoder rerank วัดแล้วดีขึ้นจริงแต่ปิดไว้เป็นค่าเริ่มต้น เหตุผลอยู่ในหัวข้อ "ข้อจำกัดที่รู้อยู่"</sub>
+### 3. ชุดทดสอบอัตโนมัติ
 
-<sub>**อ่านเลข route accuracy ควบคู่กับสัดส่วนของชุดทดสอบ** — 64 ข้อนั้นเป็น `university_rag` 60 ข้อ ที่เหลือ `general_ai` / `local_ai` / `clarify` / `decline` หมวดละ 1 ข้อ ตั้งใจถ่วงไปทางคลังความรู้เพราะเป็นเส้นทางหลักที่ต้องมีแหล่งอ้างอิง ผลคือชุดนี้นำไปเทียบกับ benchmark ที่แบ่งหมวดเท่ากันไม่ได้ และ majority-class baseline ซึ่งตอบ `university_rag` ทุกข้อจะได้ 60/64 บนชุดนี้ · ส่วน "คำตอบสาย RAG ที่มีแหล่งอ้างอิงจริง" นับจาก 60 ข้อนั้นโดยตรง จึงไม่ได้รับผลจากสัดส่วนนี้</sub>
+| ชุด | ผล | รันซ้ำด้วย |
+|---|---|---|
+| smoke test — ทั้งเส้นครบ 5 route + ประวัติ + สถิติ | **14/14** | `make smoke` |
+| unit test ของ 03 AI Router | **87 ผ่าน** | `pytest` ใน `services/03_ai_router_agent/` |
+| unit test ของ 02 API Backend | **31 ผ่าน** | `pytest` ใน `services/02_api_backend/` |
+| โมเดลจำแนกหมวดของ 04 (cross-validation 5-fold) | **82.07%** | `docker compose run --rm --no-deps engines python train.py` |
+
+<sub>82.07% คือความแม่นของตัวโมเดลเองบน 357 ตัวอย่าง 8 หมวด · ในระบบจริง router ใช้ผลของโมเดลนี้เฉพาะเมื่อมั่นใจ ≥ 0.75 ซึ่งเกิดขึ้นราว 30% ของคำถาม และในกลุ่มนั้นทายถูกทั้งหมด ที่เหลือตกไปให้ LLM ตัดสินในชั้นถัดไป</sub>
 
 ---
 
@@ -101,36 +110,6 @@
 
 ---
 
-## เริ่มต้นใช้งาน
-
-```bash
-git clone https://github.com/pitchakorn-pkt/chuayduay.git
-cd chuayduay
-cp .env.example .env     # แล้วใส่ API key ของตัวเอง
-make up                  # ขึ้นทั้งระบบ รอจนทุกตัว healthy
-make smoke               # ทดสอบว่าต่อกันติดทั้งเส้น
-```
-
-ครั้งแรกบนเครื่องใหม่ต้องเตรียมคลังความรู้ก่อนด้วย
-
-```bash
-make warmup              # ดึงโมเดล embedding ลง volume
-make ingest              # สร้างดัชนีค้นหาจากเอกสาร
-```
-
-> [!IMPORTANT]
-> **รัน `make ingest` ตอนที่ระบบขึ้นอยู่แล้ว ต้อง `docker compose restart retrieval` ตามทุกครั้ง**
-> เพราะ ingest เขียนดัชนีชุดใหม่ แต่ service ที่รันค้างอยู่ยังถือดัชนีชุดเดิมที่ถูกเขียนทับไปแล้ว
-> อาการนี้สังเกตได้ยาก: ระบบไม่ล่ม ผู้ใช้ยังได้คำตอบ (router ถอยไปตอบด้วยความรู้ทั่วไป) **แต่แหล่งอ้างอิงจะหายไปเงียบ ๆ**
-
-ถ้า `make warmup` / `make ingest` ขึ้น `PermissionError: /models/...` หรือ `/data/index` แปลว่า volume ในเครื่องถูกสร้างไว้ตั้งแต่ก่อนแก้ Dockerfile และยังเป็นของ root อยู่ แก้ครั้งเดียวด้วย
-
-```bash
-docker compose run --rm -u root retrieval chown -R 10001:10001 /data/index /models
-```
-
----
-
 ## การตัดสินใจเชิงออกแบบ
 
 เขียนไว้เพื่อให้อธิบายได้ตอนนำเสนอ และเพื่อไม่ให้มีใครไปแก้กลับโดยไม่รู้เหตุผล
@@ -150,7 +129,6 @@ docker compose run --rm -u root retrieval chown -R 10001:10001 /data/index /mode
 **LLM หลักคือ Groq มี Gemini เป็นตัวสำรองที่สลับให้เองอัตโนมัติ** เมื่อเจ้าหลักล่มหรือโควตาหมด
 ตาราง provider มี OpenAI อยู่ด้วย แต่ระบบวนลองทีละคู่ตาม `LLM_PRIMARY` → `LLM_FALLBACK` เท่านั้น ไม่ได้ไล่ครบทั้งสามเจ้า
 ทุกเจ้าเรียกผ่านไลบรารี `openai` ตัวเดียวกัน สลับด้วย `base_url` อย่างเดียว — เปลี่ยนผู้ให้บริการได้ด้วยการแก้ `.env` บรรทัดเดียว ไม่ต้องแตะโค้ด
-**อย่า hardcode ชื่อโมเดล** อ่านจาก `GROQ_MODEL` เสมอ เพราะผู้ให้บริการถอดโมเดลออกโดยไม่แจ้งล่วงหน้าได้
 
 **เนื้อหาจากไฟล์ที่ผู้ใช้แนบมาเป็น "ข้อมูล" ไม่ใช่ "คำสั่ง"**
 วางเนื้อไฟล์ไว้ก่อนแล้วปิดท้ายด้วยคำสั่งจริงของผู้ใช้เสมอ พร้อมตัด role marker ปลอมออก — วัดแล้วว่าการเรียงกลับด้านทำให้คำสั่งที่ซ่อนในไฟล์ยึดคำตอบได้จริง
@@ -184,135 +162,44 @@ docker compose run --rm -u root retrieval chown -R 10001:10001 /data/index /mode
 
 ---
 
-## ทดสอบและวัดผล
+## ทำซ้ำผลวัดเอง
 
 ```bash
-make smoke     # เรียก /health ทุกตัว แล้วถาม 5 คำถามให้ครบทั้ง 5 route + ประวัติ + สถิติ
-make eval      # รันชุดทดสอบ 64 ข้อผ่าน /api/chat จริง แล้วเขียนรายงาน
+git clone https://github.com/pitchakorn-pkt/chuayduay.git
+cd chuayduay
+cp .env.example .env     # แล้วใส่ API key ของตัวเอง
+make warmup              # ดึงโมเดล embedding ลง volume (ครั้งแรกบนเครื่องใหม่เท่านั้น)
+make up                  # ขึ้นทั้งระบบ รอจนทุกตัว healthy
+make ingest              # สร้างดัชนีค้นหาจากเอกสาร
+make smoke               # ได้ 14/14
+make eval                # ได้ตัวเลขในหัวข้อ "ผลที่วัดได้" ข้อ 1
 ```
 
-`make eval` เขียนออกมาสองไฟล์ — `eval/report.md` และ **`eval/report.html`** ซึ่งเป็นหน้าเว็บไฟล์เดียวแบบสมบูรณ์ในตัว
-เปิดด้วยการดับเบิลคลิกได้โดยไม่ต้องเชื่อมต่ออินเทอร์เน็ต นำไปเปิดประกอบการนำเสนอหรือบันทึกภาพหน้าจอใส่สไลด์ได้
-**ตัวเลขทุกตัวมาจากการรันจริง ไม่มีค่าที่พิมพ์เอง** และทั้งสองไฟล์อยู่ใน `.gitignore` เพราะเป็นผลรัน ไม่ใช่โค้ด
+> [!IMPORTANT]
+> **รัน `make ingest` ตอนที่ระบบขึ้นอยู่แล้ว ต้อง `docker compose restart retrieval` ตามทุกครั้ง**
+> เพราะ ingest เขียนดัชนีชุดใหม่ แต่ service ที่รันค้างอยู่ยังถือดัชนีชุดเดิมที่ถูกเขียนทับไปแล้ว
+> อาการนี้สังเกตได้ยาก: ระบบไม่ล่ม ผู้ใช้ยังได้คำตอบ (router ถอยไปตอบด้วยความรู้ทั่วไป) **แต่แหล่งอ้างอิงจะหายไปเงียบ ๆ**
 
-`smoke_test.sh` ตรวจ 14 ข้อ — `/health` ของ 6 service, ล็อกอิน, 5 คำถามให้ครบทั้ง 5 route, ประวัติ และสถิติ เป็นการตรวจว่าทั้งเส้นทางเชื่อมต่อกันได้ ไม่ใช่ชุดทดสอบเคสขอบ
-เคสที่เคยพังเงียบในระบบแบบนี้อยู่ใน pytest ของ 02 แทน — ขอประวัติ session ของคนอื่นต้องได้ 404 และบทสนทนายาวต้องส่งเข้า router แค่ 10 ข้อความล่าสุด · ส่วนการกด feedback ก่อนข้อความลงฐานข้อมูลทัน 07 รับไว้ด้วย upsert แล้วค่อยเชื่อมกันตอนอ่าน (ยังไม่มีเทสอัตโนมัติครอบเคสนี้)
+`eval/report.html` เป็นหน้าเว็บไฟล์เดียวแบบสมบูรณ์ในตัว เปิดด้วยการดับเบิลคลิกได้โดยไม่ต้องเชื่อมต่ออินเทอร์เน็ต
+ทั้ง `report.md` และ `report.html` อยู่ใน `.gitignore` เพราะเป็นผลรัน ไม่ใช่โค้ด — ตัวเลขในหน้านี้จึงต้องรันเองถึงจะได้กลับมา
 
 ชุด 64 ข้อเรียกด้วยบัญชีเดียว จึงชนเพดานจำนวนคำถามต่อนาทีของ `api` ได้ — สคริปต์รอตามที่ระบบแจ้งแล้วเรียกซ้ำให้เอง ไม่นับเป็นข้อที่ตก
 หากต้องการสงวนโควตารายวันของ Groq ไว้ ให้ตั้ง `LLM_PRIMARY=gemini` ก่อนรัน แล้วสลับกลับเมื่อเสร็จ
 
----
-
-## คู่มือนักพัฒนา
-
-<details>
-<summary><b>ทำส่วนของตัวเอง — ไม่ต้องรอใคร ไม่ต้องทำ mock เอง</b></summary>
-
-ทุกโมดูลตอบตาม `docs/CONTRACT.md` อยู่แล้ว คุณแก้แค่โฟลเดอร์ของตัวเอง ส่วนของเพื่อนที่คุณต้องเรียกจะตอบได้เสมอ งานของใครเสร็จช้าก็ไม่ทำให้คุณติด
-
-```bash
-git checkout develop && git pull
-git checkout -b feature/<เลขโมดูล>-<ชื่อโมดูล>-<github username>
-docker compose up -d --wait                    # ขึ้นทั้งระบบ
-# แก้โค้ดใน services/<โฟลเดอร์ของคุณ>/app/ → reload ให้เองภายในไม่กี่วินาที ไม่ต้อง build ใหม่
-curl localhost:<port ของคุณ>/health            # ทดสอบ service ของตัวเองโดยตรง
-docker compose logs -f <service ของคุณ>        # ดู error
-```
-
-| โมดูล | service | ทดสอบที่ |
-|---|---|---|
-| 01 web | `web` | http://localhost:3000 (หรือ `npm run dev` ดู README ของ 01) |
-| 02 api | `api` | `localhost:8000` |
-| 03 router | `router` | `localhost:8003` |
-| 04 engines | `engines` | `localhost:8004` |
-| 05 retrieval | `retrieval` | `localhost:8005` |
-| 06 generation | `generation` | `localhost:8006` |
-| 07 response-log | `response-log` | `localhost:8007` |
-
-**ต้อง build ใหม่เมื่อใด** — reload อัตโนมัติดูแค่ไฟล์ใน `app/`
-ถ้าแก้ `requirements.txt`, `Dockerfile` หรือไฟล์นอก `app/` (เช่น `ingest.py`, `prompts/`) ให้สั่ง `docker compose up -d --build <service>`
-ส่วน `web` build ใหม่ทุกครั้งที่แก้ ถ้าจะแก้บ่อยให้ใช้ `npm run dev`
-
-**ห้ามแก้โฟลเดอร์ของคนอื่น** หากต้องการให้โมดูลของเพื่อนตอบอะไรเพิ่ม ให้แจ้งในห้องของเขาหรือ `#contract-changes`
-
-</details>
-
-<details>
-<summary><b>ถ้าเครื่องไม่มี <code>make</code></b></summary>
-
-Windows ส่วนใหญ่ไม่มีมาให้ และ macOS บางเครื่องต้องยอมรับ license ของ Xcode ก่อน
-(`sudo xcode-select --switch /Library/Developer/CommandLineTools` แก้ได้เร็วที่สุด) — ใช้คำสั่งเต็มแทนได้ ผลเหมือนกันทุกอย่าง
-
-| แทน | ใช้ |
-|---|---|
-| `make up` | `docker compose up -d --wait` |
-| `make down` | `docker compose down` |
-| `make build` | `docker compose build` |
-| `make ps` | `docker compose ps` |
-| `make logs s=router` | `docker compose logs -f --tail=100 router` |
-| `make rebuild s=router` | `docker compose build --no-cache router && docker compose up -d router` |
-| `make smoke` | `bash scripts/smoke_test.sh` |
-| `make warmup` | `docker compose run --rm retrieval python -c "import os; from huggingface_hub import snapshot_download; snapshot_download(os.environ['EMBEDDING_MODEL'])"` |
-| `make ingest` | `docker compose run --rm retrieval python ingest.py` |
-| `make eval` | `python3 scripts/eval_e2e.py` |
-
-</details>
-
-<details>
-<summary><b>ถ้าใช้ Windows</b></summary>
-
-| เรื่อง | ทำแบบนี้ |
-|---|---|
-| ที่ clone repo | ไว้ที่ `C:\dev\chuayduay` **อย่าไว้ใน OneDrive หรือโฟลเดอร์ที่มีเว้นวรรค** — OneDrive ล็อกไฟล์ตอน sync และ docker mount โฟลเดอร์พวกนั้นแล้วพัง |
-| รัน `.sh` | ใช้ **Git Bash** `bash scripts/smoke_test.sh` (PowerShell รัน `.sh` ไม่ได้) · repo ตั้ง `.gitattributes` ให้ `.sh` เป็น LF แล้ว ถ้าเคย clone ก่อนหน้านี้แล้วเจอ `$'\r': command not found` ให้ลบไฟล์นั้นแล้วดึงใหม่ครั้งเดียว `rm scripts/smoke_test.sh && git checkout -- scripts/smoke_test.sh` |
-| `curl` ใน PowerShell | พิมพ์ `curl.exe` ไม่ใช่ `curl` (`curl` ใน PowerShell คือ `Invoke-WebRequest` คนละตัว) |
-| ตั้งตัวแปรก่อนรันคำสั่ง | PowerShell: `$env:API_URL="http://localhost:8000"; npm run dev` (แบบ `API_URL=... npm run dev` ใช้ได้แค่ใน Git Bash) |
-| Python | ใช้ `python` แทน `python3` · เปิด venv ด้วย `.venv\Scripts\activate` แทน `source .venv/bin/activate` |
-| port 5432 ชน | ถ้าเครื่องลง PostgreSQL ไว้แล้ว `docker compose up` จะขึ้น `port is already allocated` → ปิด service PostgreSQL ใน Services ของ Windows ก่อน |
-
-</details>
-
-<details>
-<summary><b>โครงของ repo</b></summary>
-
-```
-chuayduay/
-├── docker-compose.yml           7 service + postgres · healthcheck ทุกตัว
-├── docker-compose.override.yml  port ไว้ debug 8003-8007 + แก้โค้ดใน app/ แล้ว reload ให้เอง (ใช้เฉพาะตอน dev)
-├── Makefile                     คำสั่งลัดทั้งหมด พิมพ์ make โดยไม่ใส่อะไรต่อท้ายเพื่อดูรายการ
-├── .env.example                 ชื่อ env ทุกตัวพร้อมค่าตัวอย่างที่ปลอดภัย
-├── docs/                        เอกสารกลาง อ่านก่อนเขียนโค้ด
-├── scripts/                     smoke test + ตัววัดผลทั้งระบบ
-├── eval/                        ชุดทดสอบและรายงานผล
-├── 08_monitoring_deployment/    งานฝั่ง infra
-└── services/
-    ├── 01_web_app/              Next.js 14 · ฟัง 3000
-    └── 02_ … 07_                FastAPI · ฟัง 8000 เหมือนกันหมด
-        ├── app/main.py          endpoint ทั้งหมดของ service นั้น
-        ├── app/schemas.py       Pydantic ตาม CONTRACT — ห้ามเปลี่ยนชื่อ field
-        ├── app/common.py        ของกลาง: health / X-Request-ID / log JSON
-        ├── Dockerfile           หัวหน้าทีมดูแล ต้องการเพิ่ม system package ให้แจ้งก่อน
-        └── README.md            วิธีรันเดี่ยวและสิ่งที่ต้องแทน
-```
-
-</details>
+`smoke_test.sh` ตรวจ 14 ข้อ — `/health` ของ 6 service, ล็อกอิน, 5 คำถามให้ครบทั้ง 5 route, ประวัติ และสถิติ เป็นการตรวจว่าทั้งเส้นทางเชื่อมต่อกันได้ ไม่ใช่ชุดทดสอบเคสขอบ
+เคสขอบที่เคยพังเงียบในระบบแบบนี้อยู่ใน pytest ของ 02 แทน — ขอประวัติ session ของคนอื่นต้องได้ 404 และบทสนทนายาวต้องส่งเข้า router แค่ 10 ข้อความล่าสุด · ส่วนการกด feedback ก่อนข้อความลงฐานข้อมูลทัน 07 รับไว้ด้วย upsert แล้วค่อยเชื่อมกันตอนอ่าน (ยังไม่มีเทสอัตโนมัติครอบเคสนี้)
 
 ---
 
-## กติกาการส่งงาน
+## วิธีจัดการงานของทีม
 
-- คนละหนึ่งโฟลเดอร์ คนละหนึ่ง branch — **แก้ได้เฉพาะ `services/<โฟลเดอร์ของตัวเอง>/`**
-- branch ของแต่ละคนคือ `feature/<เลขโมดูล>-<ชื่อโมดูล>-<github username>` เช่น `feature/05-retrieval-SoSick41`
-- เข้า `develop` ผ่าน Pull Request เท่านั้น **ห้าม push ตรง** · ต้องมีคน approve 1 คน
-- `main` รับ merge จาก `develop` อย่างเดียว ต้อง approve 2 คน
-- เจอบั๊กในงานคนอื่น → **เปิด Issue แท็กเจ้าของ ห้ามแก้เอง** เจ้าของจะได้ทราบว่าส่วนของตนมีปัญหา
-- แก้ `docs/CONTRACT.md` ต้องแยกเป็น PR ของตัวเอง และบอกใน `#contract-changes` ก่อน
-- ห้าม commit `.env`, API key, ไฟล์โมเดล, ดัชนี หรือไฟล์เกิน 5 MB
-- commit บ่อย ๆ ทุกวัน **และเปิด PR ด้วยตัวเอง** อย่าให้คนอื่น push แทน ไม่เช่นนั้น commit จะขึ้นชื่อคนอื่น
+8 คน 8 โมดูล **คนละหนึ่งโฟลเดอร์ คนละหนึ่ง branch** — ทุกคนแก้ได้เฉพาะ `services/<โฟลเดอร์ของตัวเอง>/` เข้า `develop` ผ่าน Pull Request เท่านั้น และ `main` รับ merge จาก `develop` อย่างเดียว เจอบั๊กในงานคนอื่นให้เปิด Issue แท็กเจ้าของ ไม่แก้แทนกัน เพื่อให้ประวัติ commit สะท้อนว่าใครทำอะไรจริง
 
-`.github/CODEOWNERS` ผูกโฟลเดอร์กับเจ้าของไว้แล้ว GitHub จะขอ review จากคนที่ถูกต้องให้อัตโนมัติทุก PR
+สิ่งที่ทำให้แปดคนทำงานขนานกันได้โดยไม่ต้องรอใคร คือ [`docs/CONTRACT.md`](docs/CONTRACT.md) ที่ล็อกรูปแบบ JSON ทุกเส้นและชื่อ env ทุกตัวไว้ตั้งแต่วันแรก ทุกโมดูลจึงเขียนโค้ดเรียกหากันได้ทันทีโดยไม่ต้องทำ mock เอง และเมื่อของจริงมาแทน stub ก็ไม่มีอะไรต้องแก้ · `.github/CODEOWNERS` ผูกโฟลเดอร์กับเจ้าของไว้ GitHub จึงขอ review จากคนที่ถูกต้องให้เองทุก PR · มี webhook แจ้งเตือนเข้า Discord เมื่อเปิด / merge / ปิด PR และแจ้งทันทีเมื่อมีใครแตะ `CONTRACT.md` เพราะเป็นไฟล์เดียวที่พังแล้วกระทบทั้งทีม
 
-**แจ้งเตือนอัตโนมัติเข้า Discord** — เปิด / merge / ปิด PR เข้า `#pull-requests` พร้อม ping เจ้าของโมดูลนั้น · PR หรือ push ที่แตะ `docs/CONTRACT.md` เข้า `#contract-changes` ทันที เพราะเป็นไฟล์เดียวที่พังแล้วกระทบทั้งทีม · PR ที่เป็น draft จะไม่แจ้งเตือนใครจนกว่าจะกด Ready for review
+หัวหน้าทีมดูแลไฟล์ที่ราก (`docker-compose*.yml`, `Makefile`, `scripts/`, `eval/`) รวมงานทุกโมดูล รีวิวทุก PR และเป็นคนรันชุดวัดผลทั้งระบบ
+
+คำสั่งประจำวัน วิธีทำงานบน Windows และโครงของ repo อยู่ที่ [`08_monitoring_deployment/README.md`](08_monitoring_deployment/)
 
 ---
 
@@ -324,5 +211,6 @@ chuayduay/
 | [`docs/CONTRACT.md`](docs/CONTRACT.md) | **กฎสูงสุด** รูปแบบ JSON ทุกเส้น ชื่อ env ทุกตัว — เมื่อใดที่โค้ดขัดกับเอกสารนี้ ถือว่าโค้ดผิด |
 | [`docs/SCHEDULE.md`](docs/SCHEDULE.md) | ใครต้องส่งอะไรวันไหน วันไหนคุณรอใคร ใครรอคุณ |
 | [`docs/GIT_FLOW.md`](docs/GIT_FLOW.md) | วิธีใช้ git ของทีม — ไม่เคยใช้ git มาก่อน อ่านเฉพาะหัวข้อ 0 ถึง 4 ก็เพียงพอ |
+| [`08_monitoring_deployment/README.md`](08_monitoring_deployment/) | คำสั่งที่ใช้บ่อย คู่มือสำหรับทีม ทำงานบน Windows โครงของ repo |
 
 รายละเอียดงานของแต่ละคนอยู่ในไฟล์ที่ปักหมุดในห้อง Discord ของโมดูลนั้น
