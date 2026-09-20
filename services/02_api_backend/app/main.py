@@ -117,17 +117,18 @@ async def chat(body: ChatRequest, bg: BackgroundTasks,
     user_mid, asst_mid = str(uuid.uuid4()), str(uuid.uuid4())               # 7
 
     history: list[dict] = []                                                # 4
-    try:
-        r = await _client.get(f"{RLOG}/history/{session_id}", headers=h, timeout=10,
-                              params={"user_id": user["id"], "limit": 10})
-        if r.status_code == 404:
-            raise HTTPException(status_code=404, detail="ไม่พบบทสนทนานี้")
-        # 5 แปลง Message -> HistoryMessage เอาแค่ role กับ content
-        history = [{"role": m["role"], "content": m["content"]} for m in r.json()["messages"]]
-    except HTTPException:
-        raise
-    except Exception as exc:
-        jlog(event="history_unavailable", error=str(exc))   # 07 ล่มห้ามทำให้ chat พัง
+    if body.session_id:                     # session ใหม่ยังไม่มีประวัติ ไม่ต้องถาม 07
+        try:
+            r = await _client.get(f"{RLOG}/history/{session_id}", headers=h, timeout=T_RLOG,
+                                  params={"user_id": user["id"], "limit": 10})
+            if r.status_code == 404:
+                raise HTTPException(status_code=404, detail="ไม่พบบทสนทนานี้")
+            # 5 แปลง Message -> HistoryMessage เอาแค่ role กับ content
+            history = [{"role": m["role"], "content": m["content"]} for m in r.json()["messages"]]
+        except HTTPException:
+            raise
+        except Exception as exc:
+            jlog(event="history_unavailable", error=str(exc))   # 07 ล่มห้ามทำให้ chat พัง
 
     # 6 file_text — STUB: replace เมื่อทำ /api/upload จริง
     try:                                                                    # 8
@@ -143,12 +144,14 @@ async def chat(body: ChatRequest, bg: BackgroundTasks,
         raise HTTPException(status_code=502, detail="ระบบประมวลผลไม่พร้อมใช้งานชั่วคราว")
 
     created = _now()
+    confidence = data.get("confidence")
+    confidence = float(confidence) if isinstance(confidence, (int, float)) else 0.0
     payload = {"request_id": h["X-Request-ID"], "session_id": session_id,
                "user_id": user["id"], "user_message_id": user_mid,
                "assistant_message_id": asst_mid, "user_message": body.message,
                "answer": data["answer"], "sources": data.get("sources", []),
                "route": data["route"], "engines_used": data.get("engines_used", []),
-               "confidence": data.get("confidence"), "reasoning": data.get("reasoning"),
+               "confidence": confidence, "reasoning": data.get("reasoning"),
                "latency_ms": data.get("latency_ms"),
                "token_usage": data.get("token_usage") or {"input": 0, "output": 0},
                "status": "ok", "error_code": None,
@@ -158,7 +161,7 @@ async def chat(body: ChatRequest, bg: BackgroundTasks,
     return ChatResponse(                                                    # 9
         request_id=h["X-Request-ID"], session_id=session_id, message_id=asst_mid,
         answer=data["answer"], sources=data.get("sources", []), route=data["route"],
-        engines_used=data.get("engines_used", []), confidence=data.get("confidence", 0.0),
+        engines_used=data.get("engines_used", []), confidence=confidence,
         latency_ms=int((time.perf_counter() - t0) * 1000), created_at=created,
         trace=data.get("trace"))
 
