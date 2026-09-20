@@ -1,11 +1,5 @@
-"""02 API / Backend — ประตูหน้าบ้าน
+"""02 API / Backend — ประตูหน้าบ้าน"""
 
-STUB: auth เป็นผู้ใช้ตัวอย่างในหน่วยความจำ ยังไม่ได้ต่อ postgres
-**แต่เรียก router และ response-log ผ่าน HTTP จริง** ทั้งเส้นจึงวิ่งได้ตั้งแต่วันแรก
-
-ของจริงดู docs/team/02_api_backend.md โดยเฉพาะ "ลำดับ 10 ขั้นของ /api/chat"
-ที่ทำผิดลำดับแล้วพังเงียบ — ลำดับนั้นถูกใส่ไว้ในฟังก์ชัน chat() ด้านล่างแล้ว
-"""
 from __future__ import annotations
 
 import os
@@ -23,7 +17,10 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from contextlib import asynccontextmanager
+
 from .common import error_body, forward_headers, health_payload, jlog, request_id_middleware  # noqa: F401
+from .db import engine, get_user, init_db, verify_password
 from .schemas import ChatRequest, ChatResponse, FeedbackRequest, LoginRequest
 
 ROUTER = os.getenv("ROUTER_URL", "http://router:8000")
@@ -32,12 +29,6 @@ SECRET = os.getenv("JWT_SECRET_KEY", "dev-only-change-me")
 T_ROUTER = 75.0   # ต้องมากกว่างบรวมของ router (70s) ตาม CONTRACT ข้อ 0
 T_RLOG = 5.0
 
-# STUB: replace -- ของจริงเก็บในตาราง users พร้อม bcrypt hash
-DEMO_USERS = {"student": "student", "staff": "staff", "demo": "demo"}
-
-app = FastAPI(title="chuayduay · api")
-app.middleware("http")(request_id_middleware)
-
 ERROR_CODES = {
     400: "BAD_REQUEST", 401: "UNAUTHORIZED", 404: "NOT_FOUND", 405: "METHOD_NOT_ALLOWED",
     413: "FILE_TOO_LARGE", 422: "VALIDATION_ERROR", 429: "RATE_LIMITED",
@@ -45,6 +36,22 @@ ERROR_CODES = {
     504: "UPSTREAM_TIMEOUT",
 }
 
+_client: httpx.AsyncClient | None = None
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    global _client
+    _client = httpx.AsyncClient()
+    seeded = await init_db()
+    jlog(event="db_ready", seeded_users=seeded)
+    try:
+        yield
+    finally:
+        await _client.aclose()
+        await engine.dispose()
+
+app = FastAPI(title="chuayduay · api", lifespan=lifespan)
+app.middleware("http")(request_id_middleware)
 
 @app.exception_handler(StarletteHTTPException)
 async def _http_error(request, exc: StarletteHTTPException):
@@ -58,21 +65,6 @@ async def _validation_error(request, exc: RequestValidationError):
     fields = sorted({str(e["loc"][-1]) for e in exc.errors()})
     return JSONResponse(status_code=422, content=error_body(
         "VALIDATION_ERROR", f"ข้อมูลไม่ถูกต้อง: {', '.join(fields)}"))
-
-_client: httpx.AsyncClient | None = None
-
-
-@app.on_event("startup")
-async def _startup():
-    global _client
-    _client = httpx.AsyncClient()
-
-
-@app.on_event("shutdown")
-async def _shutdown():
-    if _client:
-        await _client.aclose()
-
 
 def _now() -> str:
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
@@ -94,12 +86,12 @@ async def health():
 
 @app.post("/api/auth/login")
 async def login(body: LoginRequest, response: Response):
-    if DEMO_USERS.get(body.username) != body.password:
+    row = await get_user(body.username)
+    if row is None or not verify_password(body.password, row.password_hash):
         raise HTTPException(status_code=401, detail="ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง")
-    user = {"id": str(uuid.uuid5(uuid.NAMESPACE_DNS, body.username)),
-            "username": body.username, "display_name": body.username, "role": "student"}
+    user = {"id": str(row.id), "username": row.username,
+            "display_name": row.display_name, "role": row.role}
     token = jwt.encode(user, SECRET, algorithm="HS256")
-    # httpOnly กัน JavaScript อ่าน token ได้ — ลดผลกระทบถ้าโดน XSS
     response.set_cookie("access_token", token, httponly=True, samesite="lax", path="/")
     return {"user": user}
 
