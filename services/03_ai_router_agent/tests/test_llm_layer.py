@@ -231,3 +231,16 @@ def test_truncated_everywhere_falls_back_to_clarify(monkeypatch):
 def test_rewrite_max_tokens_meets_contract_floor():
     # CONTRACT ข้อ 7 กับดักข้อ 5: คำตอบ JSON สั้น ๆ ต้องไม่ต่ำกว่า 1024
     assert llm.REWRITE_MAX_TOKENS >= 1024 and llm.ROUTE_MAX_TOKENS >= 1024
+
+
+def test_system_prompt_routes_small_talk_to_general_ai():
+    """ทักทาย/คุยเล่น/บ่น ต้องไม่กลายเป็น clarify หรือ decline
+
+    เจอตอนยิงเคสแปลก ๆ ก่อนสาธิต: "สวัสดี" ได้ clarify ที่ถามหาอุปกรณ์
+    และการบ่นด้วยคำหยาบได้ decline ซึ่ง CONTRACT สงวนไว้ให้คำขอผิดกฎหมายเท่านั้น
+    """
+    prompt = llm.SYSTEM_PROMPT
+    assert "ทักทาย" in prompt and "พิมพ์ทดสอบ" in prompt
+    assert "คำหยาบหรือการบ่นใส่ผู้ช่วยไม่ใช่เหตุให้ decline" in prompt
+    # ข้อกำหนดของ decline ต้องยังผูกกับ "ผิดกฎหมาย/ทำร้ายผู้อื่น" ตาม CONTRACT §3
+    assert "ผิดกฎหมายหรือทำร้ายผู้อื่น" in prompt

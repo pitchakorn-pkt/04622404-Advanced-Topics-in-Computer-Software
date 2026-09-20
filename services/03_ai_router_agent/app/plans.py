@@ -22,8 +22,8 @@ from .common import jlog
 from .config import SUMMARIZE_CUES, T_ENGINES, T_GENERATION, T_LLM, T_RETRIEVAL, TOP_K
 
 CLARIFY_TEMPLATE = (
-    "ขอรายละเอียดเพิ่มอีกนิดครับ — ช่วยบอกหน่อยว่าใช้อุปกรณ์อะไร (มือถือ/โน้ตบุ๊ก/คอมพิวเตอร์) "
-    "แล้วอาการที่เจอเป็นยังไงครับ"
+    "ขอรายละเอียดเพิ่มอีกนิดครับ ช่วยเล่าอาการที่เจอหน่อย "
+    "ถ้าเป็นเรื่องอุปกรณ์บอกด้วยว่าใช้มือถือหรือคอมพิวเตอร์ครับ"
 )
 
 DECLINE_TEMPLATE = (
@@ -41,6 +41,12 @@ SERVICE_BUSY = (
     "ตอนนี้ระบบผู้ช่วยตอบกลับไม่ได้ชั่วคราวครับ รบกวนลองใหม่อีกครั้งในอีกสักครู่ "
     "ถ้ายังไม่ได้แนะนำให้ติดต่อเจ้าหน้าที่ผู้ดูแลระบบโดยตรง"
 )
+
+# ประโยคที่ 06 ใช้บอกว่าเอกสารไม่พอจะตอบ — เกิดได้แม้ 05 จะคืน chunk มาแล้ว
+# เช่น คำถามนอกคลัง (ปริ้นเตอร์) หรือคำถามภาษาอังกฤษ ถ้าจบแค่นี้ผู้ใช้ไม่ได้อะไรกลับไปเลย
+# ตำแหน่งของประโยคไม่แน่นอน: prompt ของ 06 เปลี่ยนเป็น "ตอบเท่าที่เอกสารรองรับ
+# แล้วบอกท้ายคำตอบว่าส่วนที่เหลือไม่มีในคลัง" ประโยคนี้จึงไปโผล่ท้ายคำตอบได้ — ค้นทั้งก้อน
+NO_ANSWER_MARKERS = ("ขออภัย ไม่พบข้อมูลที่เพียงพอ", "ไม่พบข้อมูลที่เพียงพอ")
 
 
 @dataclass
@@ -132,20 +138,10 @@ async def _rag(decision: Decision, query: str, history: list[dict], file_text: s
     if not chunks:
         # CONTRACT ข้อ 3: chunks ว่าง -> fallback เป็น general_ai พร้อมบอกว่าไม่ได้อ้างอิงเอกสาร
         # ห้ามตอบ "ไม่พบ" ทันที เพราะคลังของเราไม่ได้ครอบคลุมทุกเรื่อง
-        if "ค้นคลังความรู้ไม่สำเร็จ" not in " ".join(out.notes):
-            out.notes.append("ค้นแล้วไม่เจอเอกสารที่เกี่ยวข้อง จึงตอบจากความรู้ทั่วไปแทน")
-        fallback = await _general(query, history, file_text, request_id, client, budget, steps)
-        fallback.notes = out.notes + fallback.notes
-        fallback.token_usage[0] += out.token_usage[0]
-        fallback.token_usage[1] += out.token_usage[1]
-        for engine in out.engines_used:
-            fallback.use(engine)
-        if "engines" in fallback.engines_used and fallback.answer != SERVICE_BUSY:
-            # ต่อท้ายเฉพาะตอนที่ได้คำตอบจากความรู้ทั่วไปมาจริง ๆ
-            # ถ้า 04 หรือ 06 ล่มด้วยจะเหลือแค่ข้อความว่าระบบไม่ว่าง
-            # การบอกว่า "ไม่ได้อ้างอิงเอกสาร" ต่อท้ายตรงนั้นมีแต่ทำให้ผู้ใช้งง
-            fallback.answer = fallback.answer.rstrip() + NO_DOC_NOTE
-        return fallback
+        note = ("ค้นแล้วไม่เจอเอกสารที่เกี่ยวข้อง จึงตอบจากความรู้ทั่วไปแทน"
+                if "ค้นคลังความรู้ไม่สำเร็จ" not in " ".join(out.notes) else "")
+        return await _fall_back_to_general(out, note, query, history, file_text,
+                                           request_id, client, budget, steps)
 
     # เลข ref เป็นหน้าที่ของ router — 06 เอาไปใช้ตรง ๆ จะได้ไม่มีเลขชนกัน
     contexts = [{"ref": i + 1, "text": c.get("text", ""),
@@ -172,11 +168,44 @@ async def _rag(decision: Decision, query: str, history: list[dict], file_text: s
 
     out.use("generation")
     out.add_tokens(result)
-    out.answer = result.get("answer") or _sources_only_answer(contexts)
-    out.sources = result.get("sources") or []
+    answer = (result.get("answer") or "").strip()
+    sources = result.get("sources") or []
+
+    # 05 คืน chunk มาแล้วก็จริง แต่ 06 เรียบเรียงไม่ได้ (คำถามนอกคลัง หรือคนละภาษา)
+    # ถ้าจบตรงนี้ผู้ใช้จะไม่ได้อะไรเลย ทั้งที่ยังตอบด้วยความรู้ทั่วไปได้ — ถอยเหมือนเคส chunks ว่าง
+    # ค้นทั้งคำตอบ ไม่จำกัดช่วงต้น เพราะ 06 ย้ายประโยคนี้ไปไว้ท้ายคำตอบได้
+    # (`not sources` คุมอยู่แล้วว่าคำตอบที่อ้างอิงเอกสารจริงจะไม่โดนหยิบมาถอย)
+    if not sources and any(marker in answer for marker in NO_ANSWER_MARKERS):
+        jlog(event="rag_dead_end", query_len=len(query), chunks=len(contexts))
+        return await _fall_back_to_general(
+            out, "เอกสารที่ค้นเจอไม่พอให้เรียบเรียงคำตอบ จึงตอบจากความรู้ทั่วไปแทน",
+            query, history, file_text, request_id, client, budget, steps)
+
+    out.answer = answer or _sources_only_answer(contexts)
+    out.sources = sources
     if result.get("blocked"):
         out.notes.append(f"06 บล็อกคำตอบ: {result.get('block_reason')}")
     return out
+
+
+async def _fall_back_to_general(out: Outcome, note: str, query: str, history: list[dict],
+                                file_text: str | None, request_id: str,
+                                client: httpx.AsyncClient, budget: Budget,
+                                steps: Steps) -> Outcome:
+    """เส้น rag ไปต่อไม่ได้ -> ตอบด้วยความรู้ทั่วไป แล้วบอกผู้ใช้ตรง ๆ ว่าไม่ได้อ้างอิงเอกสาร"""
+    if note:
+        out.notes.append(note)
+    fallback = await _general(query, history, file_text, request_id, client, budget, steps)
+    fallback.notes = out.notes + fallback.notes
+    fallback.token_usage[0] += out.token_usage[0]
+    fallback.token_usage[1] += out.token_usage[1]
+    for engine in out.engines_used:
+        fallback.use(engine)
+    if "engines" in fallback.engines_used and fallback.answer != SERVICE_BUSY:
+        # ต่อท้ายเฉพาะตอนที่ได้คำตอบจากความรู้ทั่วไปมาจริง ๆ
+        # ถ้า 04 หรือ 06 ล่มด้วยจะเหลือแค่ข้อความว่าระบบไม่ว่าง การต่อท้ายตรงนั้นมีแต่ทำให้งง
+        fallback.answer = fallback.answer.rstrip() + NO_DOC_NOTE
+    return fallback
 
 
 async def _general(query: str, history: list[dict], file_text: str | None, request_id: str,
