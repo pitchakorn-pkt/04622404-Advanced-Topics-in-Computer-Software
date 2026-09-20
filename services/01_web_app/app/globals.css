@@ -1,43 +1,1331 @@
+/* ชุดสีของแบรนด์ — มาจากไฟล์ออกแบบ ใช้ตัวแปรที่เดียวจะได้แก้ทีเดียวทั้งเว็บ */
+:root {
+  --bg: #faf9f3;
+  --primary: #00664d;
+  --primary-dark: #054d3b;
+  --text: #07382f;
+  --muted: #5b7a70;
+  --sage-soft: #e6eddf;
+  --sage: #a3b99a;
+  --accent: #ff8428;
+  --card: #ffffff;
+  --line: #e2e8dc;
+  --radius: 16px;
+  --shadow: 0 8px 24px rgba(7, 56, 47, 0.07);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
 html {
   scroll-behavior: smooth;
 }
 
-.markdown p {
-  margin: 0 0 8px;
+html,
+body {
+  /* กันทั้งการดีดเกินขอบ และ "ลากลงเพื่อรีเฟรช" ของเบราว์เซอร์มือถือ
+     (Chrome/Edge/Firefox/Samsung รองรับมานาน · Safari รองรับตั้งแต่ iOS 16 · เบราว์เซอร์เก่ากว่านั้นจะข้ามไปเฉย ๆ ไม่พัง) */
+  overscroll-behavior: none;
 }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Noto Sans Thai", "IBM Plex Sans Thai", system-ui, sans-serif;
+}
+
+button,
+input,
+textarea {
+  font-family: inherit;
+}
+
+/* ใบไม้มุมล่างซ้าย — เป็นของตกแต่ง ห้ามกินคลิกของปุ่มที่อยู่ข้างบน */
+.foliage {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: min(420px, 34vw);
+  opacity: 0.85;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+}
+
+.foliage.right {
+  display: none;      /* จอใหญ่ฝั่งขวาเป็นที่ของมาสคอตอยู่แล้ว */
+}
+
+.mascot-bottom {
+  display: none;      /* ใช้เฉพาะจอมือถือ จอใหญ่มีมาสคอตตัวใหญ่ข้างการ์ดอยู่แล้ว */
+}
+
+/* ---------- หน้าเข้าสู่ระบบ ---------- */
+.login-page {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.login-page::before {
+  /* วงกลมสีเสจจาง ๆ หลังมาสคอต */
+  content: "";
+  position: absolute;
+  right: -8vw;
+  top: 12vh;
+  width: 46vw;
+  height: 46vw;
+  max-width: 620px;
+  max-height: 620px;
+  background: var(--sage-soft);
+  border-radius: 50%;
+  opacity: 0.55;
+}
+
+.topbar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px clamp(16px, 4vw, 48px);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand img {
+  width: 52px;
+  height: 52px;
+}
+
+.brand-name {
+  white-space: nowrap;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.brand-sub {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.topbar-tagline {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.login-body {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(340px, 1.05fr) minmax(360px, 460px) minmax(300px, 0.95fr);
+  align-items: start;
+  gap: clamp(16px, 2.5vw, 36px);
+  padding: clamp(8px, 1.5vw, 24px) clamp(16px, 4vw, 48px) 32px;
+}
+
+.hero {
+  justify-self: start;
+  max-width: 560px;
+  padding-top: clamp(8px, 4vh, 54px);
+}
+
+.hero-kicker {
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  color: var(--muted);
+  margin-bottom: 18px;
+}
+
+.hero-title {
+  font-size: clamp(36px, 4vw, 66px);
+  line-height: 1.14;
+  font-weight: 800;
+  margin: 0;
+  white-space: nowrap;      /* ให้ขึ้นบรรทัดตามที่กำหนดด้วย <br> เท่านั้น ไม่ตัดคำเอง */
+}
+
+.hero-title .accent {
+  color: var(--accent);
+}
+
+.hero-sub {
+  margin-top: 18px;
+  font-size: 19px;
+  color: var(--muted);
+}
+
+/* ลายมือมุมซ้ายล่างแบบในแบบที่ออกแบบไว้ */
+.hero-script {
+  margin-top: clamp(24px, 5vh, 58px);
+  font-family: "Snell Roundhand", "Segoe Script", "Brush Script MT", Georgia, serif;
+  font-style: italic;
+  font-size: 30px;
+  line-height: 1.25;
+  color: var(--sage);
+  transform: rotate(-4deg);
+  transform-origin: left center;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 26px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: var(--sage-soft);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.login-card {
+  position: relative;
+  align-self: center;
+  margin-top: clamp(8px, 2vh, 28px);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  box-shadow: 0 18px 48px -24px rgba(7, 56, 47, 0.35);
+  padding: clamp(24px, 3vw, 42px);
+}
+
+.login-icon {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  background: var(--sage-soft);
+  color: var(--primary);
+  display: grid;
+  place-items: center;
+}
+
+.sparks {
+  position: absolute;
+  inset: -14px -22px auto auto;
+  pointer-events: none;
+}
+
+.input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #fbfcfa;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.input-wrap:focus-within {
+  border-color: var(--sage);
+  box-shadow: 0 0 0 3px rgba(163, 185, 154, 0.25);
+}
+
+.input-wrap > svg {
+  flex-shrink: 0;
+  color: var(--sage);
+}
+
+.input-wrap input {
+  flex: 1;
+  min-width: 0;
+  padding: 14px 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.input-wrap input:focus {
+  outline: none;
+}
+
+.eye {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.eye:hover {
+  background: var(--sage-soft);
+  color: var(--primary);
+}
+
+.login-title {
+  text-align: center;
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.login-note {
+  text-align: center;
+  color: var(--muted);
+  margin: 8px 0 26px;
+}
+
+.field {
+  display: block;
+  margin-bottom: 16px;
+}
+
+.field span {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.btn-primary {
+  width: 100%;
+  margin-top: 4px;
+  padding: 16px 18px;
+  border: none;
+  border-radius: 12px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  background: var(--primary-dark);
+  box-shadow: 0 10px 22px -12px rgba(0, 102, 77, 0.8);
+}
+
+.btn-primary:disabled {
+  background: var(--sage);
+  cursor: default;
+}
+
+.login-foot {
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.login-error {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #fdeee4;
+  color: #a2410a;
+  font-size: 14px;
+}
+
+.mascot-wrap {
+  justify-self: center;
+  align-self: center;   /* อยู่กลางแนวตั้งเหมือนดราฟแรก */
+  position: relative;
+}
+
+.mascot-wrap img {
+  width: min(430px, 32vw);
+  display: block;
+}
+
+.speech {
+  position: absolute;
+  top: 6%;
+  right: 2%;
+  max-width: 160px;
+  font-size: 15px;
+  color: var(--muted);
+  transform: rotate(-6deg);
+}
+
+/* ---------- หน้าแชท ---------- */
+.app {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr) 300px;
+  height: 100vh;
+  height: 100dvh;        /* dvh กันแถบที่อยู่เว็บของมือถือบังช่องพิมพ์ */
+  overflow: hidden;      /* ทั้งหน้าไม่เลื่อน เลื่อนเฉพาะในแต่ละคอลัมน์ */
+  transition: grid-template-columns 0.18s ease;
+}
+
+/* พับแถบซ้ายบนจอใหญ่ */
+.app.side-closed {
+  grid-template-columns: 0 minmax(0, 1fr) 300px;
+}
+
+.app.side-closed .sidebar {
+  transform: translateX(-100%);
+  border-right: none;
+}
+
+/* ฉากหลังของ drawer ใช้เฉพาะจอเล็ก */
+.scrim {
+  display: none;
+}
+
+.btn-side {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  margin-right: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.btn-side:hover {
+  background: var(--sage-soft);
+  border-color: var(--sage);
+}
+
+.sidebar {
+  border-right: 1px solid var(--line);
+  background: var(--bg);
+  transition: transform 0.18s ease;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  overflow: hidden;
+}
+
+.btn-new {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  border: none;
+  border-radius: 14px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-new:hover {
+  background: var(--primary-dark);
+}
+
+.side-label {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 0 6px;
+}
+
+.session-list {
+  flex: 1;
+  min-height: 0;          /* ให้รายการเลื่อนในกรอบตัวเอง ไม่ดันท้าย sidebar ตกจอ */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;          /* flex + flex-shrink:0 ที่ลูก = ทุกแถวสูงเท่ากันเสมอ ไม่ยุบตอนแชทเยอะ */
+  flex-direction: column;
+  gap: 6px;
+}
+
+.session {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  flex: 0 0 auto;         /* ห้ามยุบ */
+  min-height: 44px;
+  text-align: left;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session svg {
+  flex-shrink: 0;
+  color: var(--sage);
+}
+
+.session.active svg {
+  color: var(--primary);
+}
+
+.session-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session:hover {
+  background: #f1f4ee;
+}
+
+.session.active {
+  background: var(--sage-soft);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* ท้าย sidebar ติดล่างเสมอ ไม่ว่ารายการแชทจะสั้นหรือยาว */
+.side-bottom {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+}
+
+.side-foot {
+  color: var(--sage);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.account svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.account img {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--sage-soft);
+  flex-shrink: 0;
+}
+
+.account-name {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account:hover {
+  border-color: var(--sage);
+  background: var(--sage-soft);
+}
+
+.main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;         /* ไม่มีบรรทัดนี้ ช่องแชทจะยืดจนทั้งหน้าเลื่อนตาม */
+  overflow: hidden;
+  background: #fdfdfa;
+  border-right: 1px solid var(--line);
+}
+
+.main-head {
+  flex-shrink: 0;        /* หัวข้อกับช่องพิมพ์ต้องอยู่กับที่ ให้เลื่อนแค่ข้อความตรงกลาง */
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px clamp(16px, 3vw, 34px) 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.main-title {
+  font-size: 26px;
+  font-weight: 700;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.main-sub {
+  color: var(--muted);
+  margin: 4px 0 0;
+  font-size: 15px;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.thread {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 24px clamp(16px, 3vw, 34px);
+  display: grid;
+  gap: 18px;
+  align-content: start;
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+  max-width: 100%;
+}
+
+.row.user {
+  justify-content: flex-end;
+}
+
+.row .avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--sage-soft);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.row .avatar img {
+  width: 100%;
+}
+
+.bubble-wrap {
+  min-width: 0;
+  max-width: 76%;
+}
+
+.who {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: var(--primary);
+}
+
+.bubble {
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  line-height: 1.65;
+}
+
+.row.user .bubble {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  border-bottom-right-radius: 6px;
+  white-space: pre-wrap;
+}
+
+.row.bot .bubble {
+  border-bottom-left-radius: 6px;
+}
+
+.bubble.error {
+  background: #fdeee4;
+  border-color: #f3cdb2;
+  color: #a2410a;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--muted);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.tag {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--sage-soft);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.time {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.user-time {
+  margin-top: 6px;
+  text-align: right;
+}
+
+.copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.copy:hover {
+  border-color: var(--sage);
+  background: var(--sage-soft);
+  color: var(--primary);
+}
+
+.stat-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--muted);
+  padding: 5px 0;
+}
+
+.stat-row b {
+  color: var(--text);
+  font-size: 15px;
+}
+
+.routes {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+}
+
+.route-row {
+  display: grid;
+  grid-template-columns: 1fr 56px 34px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.route-row b {
+  color: var(--text);
+  text-align: right;
+}
+
+.route-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--sage-soft);
+  overflow: hidden;
+}
+
+.route-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+.trace {
+  margin-top: 10px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--sage-soft);
+  font-size: 13px;
+}
+
+.trace-bar {
+  background: #ffffff;
+  border-radius: 999px;
+  height: 7px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.trace-bar i {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+  border-radius: 999px;
+}
+
+.sources {
+  margin: 10px 0 0;
+  padding-left: 20px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.btn-retry {
+  margin-top: 8px;
+  padding: 7px 16px;
+  border-radius: 999px;
+  border: 1px solid #f3cdb2;
+  background: #fff;
+  color: #a2410a;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.composer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 clamp(16px, 3vw, 34px) 24px;
+  padding: 10px 10px 10px 20px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+}
+
+.composer input {
+  flex: 1;
+  border: none;
+  background: none;
+  font-size: 16px;
+  color: var(--text);
+  padding: 10px 0;
+}
+
+.composer input:focus {
+  outline: none;
+}
+
+.btn-send {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.btn-send:disabled {
+  background: var(--sage);
+  cursor: default;
+}
+
+.panel {
+  padding: 20px 18px;
+  display: grid;
+  gap: 18px;
+  align-content: start;
+  overflow-y: auto;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+
+.card h2 {
+  font-size: 16px;
+  margin: 0 0 12px;
+}
+
+.chip {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 11px 14px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #fbfcfa;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--sage);
+  background: var(--sage-soft);
+}
+
+.promo {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  border-radius: var(--radius);
+  background: linear-gradient(120deg, var(--sage-soft), #f4f7ef);
+  padding: 14px 4px 0 16px;
+  overflow: hidden;
+}
+
+.promo h3 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+.promo h3 .accent {
+  color: var(--accent);
+}
+
+.promo p {
+  margin: 4px 0 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.promo img {
+  width: 104px;
+  flex-shrink: 0;
+  display: block;
+  margin-bottom: -6px;
+}
+
+.thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.thinking i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--sage);
+  animation: blink 1s infinite;
+}
+
+.thinking i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.thinking i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+
+.empty {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+  color: var(--muted);
+  padding: 40px 20px;
+}
+
+.empty img {
+  width: 150px;
+}
+
+.main-foliage {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: min(340px, 38%);
+  opacity: 0.16;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+  transition: opacity 0.45s ease;
+}
+
+.main-foliage.right {
+  left: auto;
+  right: 0;
+  transform: scaleX(-1);   /* พลิกกลับด้าน ให้สองมุมล่างสมดุลกัน */
+}
+
+.main-foliage.dim {
+  opacity: 0.07;      /* เริ่มคุยแล้วจางลงอีก ข้อความจะได้อ่านง่าย */
+}
+
+/* เนื้อหาทุกส่วนต้องอยู่เหนือใบไม้ */
+.main-head,
+.thread,
+.samples-narrow,
+.composer {
+  position: relative;
+  z-index: 1;
+}
+
+/* คำถามที่พบบ่อยแบบแถวเลื่อนแนวนอน โผล่เฉพาะตอนคอลัมน์ขวาถูกซ่อน */
+.samples-narrow {
+  display: none;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 0 clamp(16px, 3vw, 34px) 12px;
+  scrollbar-width: none;
+}
+
+.samples-narrow::-webkit-scrollbar {
+  display: none;
+}
+
+.chip-narrow {
+  flex: 0 0 auto;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* จอแคบ: ซ่อนคอลัมน์ขวาก่อน แล้วค่อยซ่อน sidebar */
+@media (max-width: 1100px) {
+  .app {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+  .app.side-closed {
+    grid-template-columns: 0 minmax(0, 1fr);
+  }
+  .panel {
+    display: none;
+  }
+  .samples-narrow {
+    display: flex;
+  }
+  .login-body {
+    grid-template-columns: 1fr minmax(320px, 460px);
+  }
+  .mascot-wrap {
+    display: none;
+  }
+}
+
+/* ---------- มือถือ: หน้าเข้าสู่ระบบ ---------- */
+@media (max-width: 780px) {
+  .login-page {
+    /* ตรึงเป็นเลเยอร์เต็มจอ เอกสารจึงไม่มีความสูงเกินจอให้ Safari ลากได้ */
+    position: fixed;
+    inset: 0;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .login-page::before {
+    /* วงกลมเสจย้ายไปอยู่หลังหัวข้อ ไม่ให้ไปทับการ์ด */
+    right: -30vw;
+    top: 4vh;
+    width: 78vw;
+    height: 78vw;
+  }
+  .topbar {
+    flex-shrink: 0;       /* อยู่บนสุดเสมอ ไม่ถูกดันหาย เพราะทั้งหน้าไม่เลื่อนแล้ว */
+    padding: 12px 18px 6px;
+  }
+  body {
+    overscroll-behavior-y: none;   /* กันหน้าดีดเกินขอบตอนลากนิ้ว */
+  }
+  .topbar-tagline {
+    display: none;
+  }
+  .brand img {
+    width: 44px;
+    height: 44px;
+  }
+  .login-body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;     /* ไม่ให้ลากเลื่อนได้เลย ทุกอย่างพอดีหนึ่งหน้าจอ */
+    overscroll-behavior: contain;
+    align-items: center;
+    padding: 4px 18px calc(140px + env(safe-area-inset-bottom));
+    gap: 14px;
+  }
+  /* จอมือถือ: ตัดหัวข้อใหญ่ออก ให้การ์ดกับมาสคอตพอดีหนึ่งหน้าจอ */
+  .hero {
+    display: none;
+  }
+  .hero-kicker {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    margin-bottom: 8px;
+  }
+  .hero-title {
+    font-size: clamp(30px, 9vw, 40px);
+  }
+  .hero-sub {
+    margin-top: 10px;
+    font-size: 15px;
+  }
+  .pill {
+    margin-top: 14px;
+    padding: 8px 16px;
+    font-size: 14px;
+  }
+  .login-card {
+    margin-top: 0;
+    padding: 22px 18px;
+    border-radius: 18px;
+  }
+  .sparks {
+    inset: -10px -16px auto auto;
+    width: 48px;
+    height: 48px;
+  }
+  .login-icon {
+    width: 56px;
+    height: 56px;
+    margin-bottom: 12px;
+    font-size: 26px;
+  }
+  .login-title {
+    font-size: 24px;
+  }
+  .login-note {
+    margin-bottom: 18px;
+    font-size: 15px;
+  }
+  /* ใบไม้บนมือถือ: โชว์ทั้งภาพสองมุมล่าง จางลงให้ไม่ดึงสายตา */
+  .foliage {
+    width: min(300px, 62vw);
+    height: auto;
+    opacity: 0.42;
+  }
+  .foliage.right {
+    display: block;
+    left: auto;
+    right: 0;
+    transform: scaleX(-1);
+  }
+  .mascot-bottom {
+    display: block;
+    position: fixed;
+    left: 50%;
+    bottom: calc(-6px + env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    width: min(200px, 46vw);
+    z-index: 1;            /* อยู่เหนือใบไม้ แต่ยังต่ำกว่าการ์ดเข้าสู่ระบบ */
+    pointer-events: none;
+    user-select: none;
+  }
+  .mascot-bottom {
+    width: min(176px, 42vw);
+  }
+}
+
+/* เครื่องจอเตี้ย (เช่น iPhone SE) พื้นที่ไม่พอจริง ๆ ค่อยยอมให้เลื่อนเฉพาะการ์ด */
+@media (max-width: 780px) and (max-height: 700px) {
+  .login-body {
+    overflow-y: auto;
+    padding-bottom: calc(112px + env(safe-area-inset-bottom));
+  }
+  .mascot-bottom {
+    width: min(132px, 34vw);
+  }
+  .login-card {
+    padding: 18px 16px;
+  }
+  .login-icon {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 10px;
+  }
+  .login-note {
+    margin-bottom: 14px;
+  }
+}
+
+@media (max-width: 780px) {
+  /* จอมือถือ: ตรึงทั้งหน้าเป็นเลเยอร์เต็มจอ เลื่อนได้เฉพาะรายการข้อความ */
+  .app,
+  .app.side-closed {
+    position: fixed;
+    inset: 0;
+    height: 100%;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 82vw;
+    max-width: 300px;
+    z-index: 30;
+    box-shadow: 0 0 40px rgba(7, 56, 47, 0.18);
+  }
+  .app.side-closed .sidebar {
+    transform: translateX(-100%);
+  }
+  .app:not(.side-closed) .scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background: rgba(7, 56, 47, 0.35);
+  }
+  .bubble-wrap {
+    max-width: 88%;
+  }
+  .main-foliage {
+    width: min(260px, 62vw);
+    height: auto;
+  }
+  .composer {
+    margin-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+  .main-title {
+    font-size: 20px;
+  }
+  .main-sub,
+  .status {
+    display: none;
+  }
+  .login-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hero {
+    display: none;
+  }
+  .foliage {
+    width: 220px;
+    opacity: 0.6;
+  }
+}
+
+/* ---------- เนื้อหา markdown ของคำตอบ ---------- */
+.markdown p {
+  margin: 0 0 10px;
+}
+
 .markdown p:last-child {
   margin-bottom: 0;
 }
+
 .markdown a {
-  color: #7bb3ff;
+  color: var(--primary);
 }
+
 .markdown code {
-  background: #0f1115;
-  padding: 2px 5px;
-  border-radius: 4px;
+  background: var(--sage-soft);
+  padding: 2px 6px;
+  border-radius: 6px;
   font-size: 0.9em;
 }
+
 .markdown pre {
-  background: #0f1115;
-  padding: 10px;
-  border-radius: 8px;
+  background: #f1f4ee;
+  padding: 12px;
+  border-radius: 12px;
   overflow-x: auto;
 }
+
 .markdown pre code {
   background: none;
   padding: 0;
 }
+
 .markdown ul,
 .markdown ol {
-  margin: 4px 0 8px 20px;
+  margin: 6px 0 10px 22px;
   padding: 0;
 }
+
+.markdown li {
+  margin: 3px 0;
+}
+
 .markdown table {
   border-collapse: collapse;
-  margin: 8px 0;
+  margin: 10px 0;
+  width: 100%;
+  font-size: 14px;
 }
+
 .markdown th,
 .markdown td {
-  border: 1px solid #2a2f3a;
-  padding: 4px 8px;
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.markdown th {
+  background: var(--sage-soft);
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+  font-size: 17px;
+  margin: 12px 0 6px;
 }

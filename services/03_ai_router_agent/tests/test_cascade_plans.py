@@ -373,3 +373,67 @@ def test_rag_fallback_does_not_add_doc_note_to_a_busy_message(calls, monkeypatch
     out = plan("university_rag")
     assert out.answer == plans.SERVICE_BUSY
     assert "ไม่ได้อ้างอิงเอกสาร" not in out.answer
+
+
+# ---- 06 ตันทั้งที่ 05 คืน chunk มาแล้ว (เจอตอนยิงเคสแปลก ๆ ก่อนสาธิต) ----
+
+def _dead_end_generation(answer="ขออภัย ไม่พบข้อมูลที่เพียงพอในคลังความรู้สำหรับตอบคำถามนี้",
+                         sources=None):
+    async def fake(client, request_id, mode, query, timeout,
+                   history=None, contexts=None, draft=None):
+        if mode == "grounded":
+            return {"answer": answer, "sources": sources or [], "blocked": False,
+                    "model": "test", "latency_ms": 5, "token_usage": {"input": 5, "output": 5}}
+        return {"answer": "คำตอบโหมด passthrough", "sources": [], "blocked": False,
+                "model": "none", "latency_ms": 5, "token_usage": {"input": 5, "output": 5}}
+    return fake
+
+
+def test_rag_dead_end_falls_back_to_general_ai(calls, monkeypatch):
+    """05 คืน chunk มาแล้ว แต่ 06 เรียบเรียงไม่ได้ (คำถามนอกคลัง เช่น ปริ้นเตอร์ หรือถามเป็นอังกฤษ)
+
+    ของเดิมจบแค่ประโยค "ไม่พบข้อมูลที่เพียงพอ" ผู้ใช้ไม่ได้อะไรกลับไปเลย
+    """
+    monkeypatch.setattr(clients, "generate", _dead_end_generation())
+    out = plan("university_rag", query="ปริ้นเตอร์ Epson L3210 ไฟกะพริบสีส้ม")
+
+    assert out.route == "general_ai"
+    assert "ไม่ได้อ้างอิงเอกสาร" in out.answer
+    assert "ไม่พบข้อมูลที่เพียงพอ" not in out.answer
+    assert any("ตอบจากความรู้ทั่วไปแทน" in note for note in out.notes)
+    assert calls["general"]              # ถอยไปเรียก 04 จริง
+
+
+def test_rag_keeps_grounded_answer_when_sources_are_cited(calls, monkeypatch):
+    # ประโยคขึ้นต้นเหมือนกันแต่มี source อ้างอิงจริง = คำตอบที่ใช้ได้ ห้ามไปเรียก 04 ซ้ำ
+    monkeypatch.setattr(clients, "generate",
+                        _dead_end_generation(answer="ขออภัย ไม่พบข้อมูลที่เพียงพอ แต่มีข้อมูลใกล้เคียง [1]",
+                                             sources=[CHUNK["source"]]))
+    out = plan("university_rag")
+    assert out.route == "university_rag"
+    assert calls["general"] == []
+
+
+def test_clarify_message_does_not_assume_a_device_problem(calls):
+    out = plan("clarify")
+    # ก่อนหน้านี้ถามหาอุปกรณ์ทุกครั้ง แม้ผู้ใช้จะแค่ทักทายหรือพิมพ์ทดสอบ
+    assert "เล่าอาการ" in out.answer
+    assert "ถ้าเป็นเรื่องอุปกรณ์" in out.answer
+
+
+def test_rag_dead_end_detected_when_marker_sits_at_the_end(calls, monkeypatch):
+    """06 เปลี่ยน prompt เป็น "ตอบเท่าที่เอกสารรองรับ แล้วบอกท้ายคำตอบว่าส่วนที่เหลือไม่มีในคลัง"
+
+    ประโยคบอกว่าเอกสารไม่พอจึงไปอยู่ท้ายคำตอบ ของเดิมดักแค่ช่วงต้นเลยหลุด
+    (ยิงจริง 4 รอบ หลุด 2 รอบ ประโยคอยู่ตำแหน่ง 173 และ 738)
+    """
+    long_answer = ("ปริ้นเตอร์รุ่นนี้ไฟสีส้มมักหมายถึงตลับหมึกหรือกระดาษติด " * 12
+                   + "\n\nขออภัย ไม่พบข้อมูลที่เพียงพอในคลังความรู้สำหรับส่วนที่เหลือ")
+    assert long_answer.index("ไม่พบข้อมูลที่เพียงพอ") > 120      # ประโยคอยู่พ้นช่วงที่เคยดัก
+
+    monkeypatch.setattr(clients, "generate", _dead_end_generation(answer=long_answer))
+    out = plan("university_rag", query="ปริ้นเตอร์ Epson L3210 ไฟกะพริบสีส้ม")
+
+    assert out.route == "general_ai"
+    assert "ไม่ได้อ้างอิงเอกสาร" in out.answer
+    assert calls["general"]
