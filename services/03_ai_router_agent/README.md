@@ -87,6 +87,17 @@ ENGINES_URL=http://localhost:8004 python tests/eval_routing.py --delay 5   # cas
 `tests/routing_cases.jsonl` มี 40 ข้อ ครบทั้ง 5 route (rag 16 · general 8 · local 4 · clarify 6 · decline 6)
 สคริปต์พิมพ์ accuracy แยกราย route, confusion matrix, และสัดส่วนที่ตัดสินใจได้โดยไม่เรียก LLM
 
+`tests/chitchat_cases.jsonl` เป็นชุดที่สอง 12 ข้อ แยกออกมาต่างหาก **จงใจไม่รวมกับ 40 ข้อเดิม**
+เพื่อให้ตัวเลขฐานเทียบกับรอบก่อน ๆ ได้ตรง ๆ — เก็บเคสทักทาย คุยเล่น ชม บ่น พิมพ์ทดสอบ (ต้องได้ `general_ai`)
+และเคส "บอกว่ามีปัญหาแต่ไม่บอกว่าเรื่องอะไร" (ต้องได้ `clarify` จริง ๆ) ซึ่งเป็นเส้นแบ่งที่พลาดง่ายที่สุด
+
+```bash
+ENGINES_URL=http://localhost:8004 python tests/eval_routing.py --cases tests/chitchat_cases.jsonl --delay 5
+```
+
+ทั้ง 12 ข้อนี้ตัดสินที่ชั้น 3 ทั้งหมด (ชั้น 0-1 ไม่มีคำดัก) ถ้าอยากประหยัดโควตาช่วงสาธิต
+ทางเลือกคือเพิ่มกฎทักทายแบบตรงตัวที่ชั้น 1 — ยังไม่ทำเพราะต้องแก้ตาราง rule base ซึ่งล็อกไว้
+
 ### ผลที่วัดได้
 
 | ชุดที่วัด | route accuracy | หมายเหตุ |
