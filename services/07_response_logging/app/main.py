@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Response
 from sqlalchemy.orm import Session
+import csv
+import io
 from sqlalchemy import desc, func
 
 from .common import health_payload, jlog, request_id_middleware
@@ -198,3 +200,38 @@ async def stats(days: int = 7, db: Session = Depends(get_db)):
         "error_rate": error_rate,
         "top_downvoted": []
     }
+
+@app.get("/export/feedback.csv")
+async def export_feedback_csv(days: int = 30, db: Session = Depends(get_db)):
+    cutoff = _now_utc() - timedelta(days=days)
+    
+    # Get all feedback in the last X days, joined with the corresponding assistant message
+    feedbacks = db.query(Feedback, Message).outerjoin(
+        Message, Feedback.message_id == Message.message_id
+    ).filter(
+        Feedback.created_at >= cutoff
+    ).order_by(desc(Feedback.created_at)).all()
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["created_at", "rating", "user_id", "message_id", "comment", "route", "ai_answer"])
+    
+    for fb, msg in feedbacks:
+        route = msg.route if msg else ""
+        answer = msg.content if msg else ""
+        writer.writerow([
+            fb.created_at.isoformat(),
+            fb.rating,
+            fb.user_id,
+            fb.message_id,
+            fb.comment or "",
+            route,
+            answer
+        ])
+        
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=feedback_{days}days.csv"}
+    )
+
