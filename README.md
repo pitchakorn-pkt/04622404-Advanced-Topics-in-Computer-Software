@@ -1,9 +1,73 @@
 # ช่วยด้วย (ChuayDuay)
 
-ผู้ช่วยตอบคำถามภาษาไทยเรื่องปัญหาการใช้งานมือถือและคอมพิวเตอร์ ตอบจากคลังความรู้ของระบบเองพร้อมแหล่งอ้างอิงที่ตรวจสอบได้
+**ผู้ช่วยตอบคำถามภาษาไทยเรื่องปัญหาการใช้งานมือถือและคอมพิวเตอร์** ตอบจากคลังความรู้ของระบบเองพร้อมแหล่งอ้างอิงที่ตรวจสอบได้
 
-เป็นระบบ **agentic RAG** แยกเป็น 8 โมดูล รันด้วย Docker Compose คำสั่งเดียว
+เป็นระบบ **agentic RAG** แยกเป็น 8 โมดูลที่คุยกันผ่าน HTTP รันทั้งระบบด้วย Docker Compose คำสั่งเดียว
 งานรายวิชา **04622404 Advanced Topics in Computer Software — DL-06 Agentic AI System I**
+
+---
+
+## ทีม
+
+8 คน · 1 คนต่อ 1 โมดูล · หัวหน้าทีมดูแลโมดูล 08 และรวมงานทุกโมดูลเข้าด้วยกัน
+
+| โมดูล | ชื่อ–สกุล | รหัสนักศึกษา | GitHub |
+|---|---|---|---|
+| [01 Web App](services/01_web_app/) | Jakkrich Sriraksa | 116730462014-5 | [@jakkrich0912-web](https://github.com/jakkrich0912-web) |
+| [02 API Backend](services/02_api_backend/) | Karmolputh Phatarathorn | 116610462034-7 | [@Chakamon02](https://github.com/Chakamon02) |
+| [03 AI Router](services/03_ai_router_agent/) | Patcharanat Budploy | 116730462038-4 | [@Patcharanat23](https://github.com/Patcharanat23) |
+| [04 AI Engines](services/04_ai_model_selection/) | Pathumporn Jorrapong | 116730462009-5 | [@pathumpornjorrapong-ops](https://github.com/pathumpornjorrapong-ops) |
+| [05 Retrieval](services/05_retrieval_knowledge/) | Suphakorn Nonthong | 116730462028-5 | [@SoSick41](https://github.com/SoSick41) |
+| [06 LLM Generation](services/06_llm_generation/) | Phitphibul Phrompheak | 116730462030-1 | [@phitphibul67](https://github.com/phitphibul67) |
+| [07 Response / Log](services/07_response_logging/) | Jirapa Gongmool | 116730462008-7 | [@jirapa-gm](https://github.com/jirapa-gm) |
+| [08 Docker / Integration](08_monitoring_deployment/) | Pitchakorn Phuadkhunthod **(หัวหน้าทีม)** | 116730462035-0 | [@pitchakorn-pkt](https://github.com/pitchakorn-pkt) |
+
+| โมดูล | รับผิดชอบอะไร |
+|---|---|
+| **01 Web App** | หน้าเว็บที่ผู้ใช้เห็น — แชท แหล่งอ้างอิงใต้คำตอบ ประวัติแชท แผงแสดงการตัดสินใจของ agent การ์ดสถิติ ปุ่มคัดลอกคำตอบ |
+| **02 API Backend** | ประตูหน้าบ้าน — ล็อกอิน ตรวจ input ประกอบ context จำกัดอัตราการถาม แล้วส่งต่อให้ router |
+| **03 AI Router** | สมองของระบบ — ตัดสินใจว่าคำถามไป route ไหน ด้วย 4 ชั้น guard → rules → classifier → LLM |
+| **04 AI Engines** | General AI ผ่าน Groq พร้อมตัวสำรอง · Local AI โมเดลจำแนก 8 หมวดที่เทรนเอง |
+| **05 Retrieval** | เตรียมคลังความรู้และค้นแบบ hybrid BM25 + vector — ที่มาของแหล่งอ้างอิงทุกข้อ |
+| **06 LLM Generation** | เขียนคำตอบพร้อมเลขอ้างอิงที่ตรวจแล้ว · ด่านความปลอดภัยและปิดข้อมูลส่วนตัว |
+| **07 Response / Log** | ความจำของระบบ — เก็บบทสนทนา feedback สรุปสถิติ และ export feedback เป็น CSV |
+| **08 Docker / Integration** | รวม 7 โมดูลให้รันด้วยคำสั่งเดียว · Docker · smoke test และวัดผลทั้งระบบ · รีวิว PR |
+
+---
+
+## ผลที่วัดได้
+
+ทุกตัวเลขในหัวข้อนี้มาจากการรันจริงบนเครื่อง ไม่มีค่าที่พิมพ์เอง — รันซ้ำได้ด้วย `make smoke` และ `make eval`
+
+**ทั้งระบบ — ชุดทดสอบ 64 คำถาม ยิงผ่าน `/api/chat` เหมือนผู้ใช้จริง**
+
+| ตัวชี้วัด | ค่า |
+|---|---|
+| เลือกเส้นทางถูก (route accuracy) | **85.9%** · 55/64 |
+| คำตอบสาย RAG ที่มีแหล่งอ้างอิงจริง | **51/60** |
+| เวลาตอบเฉลี่ย | **2.2 วินาที** |
+| เวลาตอบ p95 | **3.7 วินาที** |
+| คำขอที่ล้มเหลว | **0** |
+
+**การค้นคลังความรู้ — วัดกับ golden set ที่มีเฉลย**
+
+| วิธีค้น | hit@1 | hit@5 | MRR |
+|---|---|---|---|
+| BM25 อย่างเดียว | 0.4000 | 0.6500 | 0.4794 |
+| vector อย่างเดียว | 0.5000 | 0.8500 | 0.6325 |
+| **hybrid (RRF) — ที่ระบบใช้จริง** | **0.4667** | **0.8500** | **0.6011** |
+| hybrid + cross-encoder rerank | 0.7167 | 0.9333 | 0.7978 |
+
+**ชุดทดสอบอัตโนมัติ**
+
+| ชุด | ผล |
+|---|---|
+| `make smoke` — ทั้งเส้นครบ 5 route + ประวัติ + สถิติ | **14/14** |
+| unit test ของ 03 AI Router | **87 ผ่าน** |
+| unit test ของ 02 API Backend | **31 ผ่าน** |
+| โมเดลจำแนกหมวดของ 04 (cross-validation) | **82.07%** |
+
+<sub>ชุด 64 คำถามรันด้วย `gemini-3.5-flash-lite` เว้นระยะ 10 วินาทีต่อข้อ เพื่อกันโควตารายวันของ Groq ไว้ใช้วันนำเสนอ · cross-encoder rerank วัดแล้วดีขึ้นจริงแต่ปิดไว้เป็นค่าเริ่มต้น เหตุผลอยู่ในหัวข้อ "ข้อจำกัดที่รู้อยู่"</sub>
 
 ---
 
@@ -25,28 +89,13 @@
 |---|---|---|
 | 0 guard | ข้อความว่าง สั้นเกิน อ้างอิงลอย ๆ → `clarify` · คำขอที่ไม่ควรตอบ → `decline` | ไม่ |
 | 1 rules | คำสำคัญของโดเมน (ไวไฟ รหัสผ่าน แบต เครื่องช้า …) → `university_rag` | ไม่ |
-| 2 classifier | โมเดลจำแนก 8 หมวดที่เทรนเอง รันในเครื่อง ถ้ามั่นใจ ≥ 0.75 | ไม่ |
+| 2 classifier | โมเดลจำแนก 8 หมวดที่เทรนเอง รันในเครื่อง ใช้เมื่อมั่นใจ ≥ 0.75 | ไม่ |
 | 3 LLM | เหลือเฉพาะที่ยังไม่มั่นใจ ขอคำตอบเป็น JSON | ใช่ |
 
 ทำแบบนี้เพราะการส่งทุกคำถามให้ LLM จำแนกทั้งช้าและเปลืองโควตาที่แชร์กันทั้งทีม
-`router` บันทึกไว้ทุกครั้งว่าจบที่ชั้นไหน แล้วคืนกลับมาใน `trace` เพื่อให้วัดได้ว่ากี่เปอร์เซ็นต์ไม่ต้องเรียก LLM เลย
+`router` บันทึกทุกครั้งว่าจบที่ชั้นไหนแล้วคืนกลับมาใน `trace` จึงวัดได้ว่ากี่เปอร์เซ็นต์ไม่ต้องเรียก LLM เลย
 
----
-
-## สมาชิกและความรับผิดชอบ
-
-| โมดูล | ผู้รับผิดชอบ | branch | ผลที่วัดได้ |
-|---|---|---|---|
-| [01 Web App](services/01_web_app/) | [@jakkrich0912-web](https://github.com/jakkrich0912-web) | `feature/01-web-jakkrich0912-web` | |
-| [02 API Backend](services/02_api_backend/) | [@Chakamon02](https://github.com/Chakamon02) | `feature/02-api-Chakamon02` | |
-| [03 AI Router](services/03_ai_router_agent/) | [@Patcharanat23](https://github.com/Patcharanat23) | `feature/03-router-Patcharanat23` | |
-| [04 AI Engines](services/04_ai_model_selection/) | [@pathumpornjorrapong-ops](https://github.com/pathumpornjorrapong-ops) | `feature/04-engines-pathumpornjorrapong-ops` | |
-| [05 Retrieval](services/05_retrieval_knowledge/) | [@SoSick41](https://github.com/SoSick41) | `feature/05-retrieval-SoSick41` | |
-| [06 LLM Generation](services/06_llm_generation/) | [@phitphibul67](https://github.com/phitphibul67) | `feature/06-generation-phitphibul67` | |
-| [07 Response / Log](services/07_response_logging/) | [@jirapa-gm](https://github.com/jirapa-gm) | `feature/07-responselog-jirapa-gm` | |
-| [08 Docker / Integration](08_monitoring_deployment/) | [@pitchakorn-pkt](https://github.com/pitchakorn-pkt) | `develop` | |
-
-ช่อง "ผลที่วัดได้" เจ้าของแต่ละโมดูลเติมเองเมื่อมีตัวเลขจริง เช่น route accuracy, hit@5, % คำตอบที่มีอ้างอิงถูกต้อง
+**สิ่งที่ระบบทำได้ตอนนี้** — ล็อกอิน · ถาม-ตอบต่อเนื่องจำบริบทเดิมได้ · แสดงแหล่งอ้างอิงใต้คำตอบ · ประวัติแชทย้อนหลัง · กางดูการตัดสินใจของ agent · คัดลอกคำตอบ · การ์ดสถิติการใช้งาน · ปิดข้อมูลส่วนตัวในคำตอบอัตโนมัติ · กันคำสั่งแฝงในไฟล์ที่แนบเข้ามา · สลับผู้ให้บริการ LLM เองเมื่อเจ้าหลักล่มหรือโควตาหมด
 
 ---
 
@@ -60,16 +109,130 @@ make up                  # ขึ้นทั้งระบบ รอจนท�
 make smoke               # ทดสอบว่าต่อกันติดทั้งเส้น
 ```
 
-เปิด http://localhost:3000 · ผู้ใช้ตัวอย่าง `student` / `student`
-
-อีกสองคำสั่งที่ต้องใช้เมื่อโมดูล 05 มีของจริงแล้ว
+ครั้งแรกบนเครื่องใหม่ต้องเตรียมคลังความรู้ก่อนด้วย
 
 ```bash
-make warmup              # ดึงโมเดล embedding ลง volume — ครั้งแรกบนเครื่องใหม่ต้องทำ
+make warmup              # ดึงโมเดล embedding ลง volume
 make ingest              # สร้างดัชนีค้นหาจากเอกสาร
 ```
 
-### ถ้าเครื่องไม่มี `make`
+> [!IMPORTANT]
+> **รัน `make ingest` ตอนที่ระบบขึ้นอยู่แล้ว ต้อง `docker compose restart retrieval` ตามทุกครั้ง**
+> เพราะ ingest เขียนดัชนีชุดใหม่ แต่ service ที่รันค้างอยู่ยังถือดัชนีชุดเดิมที่ถูกเขียนทับไปแล้ว
+> อาการจะหลอกมาก: ระบบไม่ล่ม ผู้ใช้ยังได้คำตอบ (router ถอยไปตอบด้วยความรู้ทั่วไป) **แต่แหล่งอ้างอิงจะหายไปเงียบ ๆ**
+
+ถ้า `make warmup` / `make ingest` ขึ้น `PermissionError: /models/...` หรือ `/data/index` แปลว่า volume ในเครื่องถูกสร้างไว้ตั้งแต่ก่อนแก้ Dockerfile และยังเป็นของ root อยู่ แก้ครั้งเดียวด้วย
+
+```bash
+docker compose run --rm -u root retrieval chown -R 10001:10001 /data/index /models
+```
+
+---
+
+## การตัดสินใจเชิงออกแบบ
+
+เขียนไว้เพื่อให้อธิบายได้ตอนนำเสนอ และเพื่อไม่ให้มีใครไปแก้กลับโดยไม่รู้เหตุผล
+
+**Retrieval ทำงานเฉพาะ route `university_rag`** ไม่ใช่ทุกคำถาม
+ในแผนภาพต้นแบบทุกเส้นวิ่งผ่าน Retrieval แต่คำถามทั่วไปไม่ควรต้องไปค้นคลังความรู้ก่อน — เสียเวลาฟรีและได้ context ที่ไม่เกี่ยวมาปน · `clarify` กับ `decline` ไม่เรียก service ไหนเลย
+
+**`generation` มีโหมด `passthrough` ที่ไม่เรียก LLM**
+ถ้าไม่มีโหมดนี้ คำถามเดียวจะเรียก LLM สองรอบ (ที่ `engines` และที่ `generation`) ช้าขึ้นเท่าตัวและกินโควตาที่แชร์กันทั้งทีม · ตรวจได้จาก `model: "none"` ในคำตอบ
+
+**เส้น `university_rag` ห้ามจบด้วยการบอกผู้ใช้ว่าไม่มีข้อมูล**
+ถ้าค้นไม่เจอ หรือเจอแต่เรียบเรียงคำตอบไม่ได้ ระบบจะถอยไปตอบด้วยความรู้ทั่วไปแล้วบอกตรง ๆ ว่าคำตอบนี้ไม่ได้อ้างอิงเอกสาร — ดีกว่าปล่อยให้ผู้ใช้ได้ข้อความว่า "ไม่พบข้อมูล" แล้วจบ
+
+**ชื่อ route คง `university_rag` ไว้ตามผังต้นแบบ แต่หน้าเว็บห้ามโชว์ค่าดิบ**
+ความหมายจริงคือ "เส้นทางที่ตอบจากคลังความรู้ที่เราดูแลเอง พร้อมอ้างอิง" หน้าเว็บแปลงเป็นป้ายภาษาคนก่อนแสดงเสมอ
+
+**LLM หลักคือ Groq** Gemini กับ OpenAI เป็นตัวสำรอง และสลับให้เองอัตโนมัติเมื่อเจ้าหลักล่มหรือโควตาหมด
+ทุกเจ้าเรียกผ่านไลบรารี `openai` ตัวเดียวกัน สลับด้วย `base_url` อย่างเดียว — เปลี่ยนผู้ให้บริการได้ด้วยการแก้ `.env` บรรทัดเดียว ไม่ต้องแตะโค้ด
+**อย่า hardcode ชื่อโมเดล** อ่านจาก `GROQ_MODEL` เสมอ เพราะผู้ให้บริการถอดโมเดลออกโดยไม่แจ้งล่วงหน้าได้
+
+**เนื้อหาจากไฟล์ที่ผู้ใช้แนบมาเป็น "ข้อมูล" ไม่ใช่ "คำสั่ง"**
+วางเนื้อไฟล์ไว้ก่อนแล้วปิดท้ายด้วยคำสั่งจริงของผู้ใช้เสมอ พร้อมตัด role marker ปลอมออก — วัดแล้วว่าการเรียงกลับด้านทำให้คำสั่งที่ซ่อนในไฟล์ยึดคำตอบได้จริง
+
+**ทุก request มี `X-Request-ID` ส่งต่อทุก hop และทุก service log เป็น JSON บรรทัดเดียว**
+เวลารวมงานแล้วพัง ไล่ `request_id` เดียวกันผ่าน `make logs` จะรู้ทันทีว่าไปตายที่ hop ไหน
+
+**`router` คืน `trace` กลับมาด้วย** บอกว่าตัดสินใจที่ชั้นไหนและใช้เวลาตรงไหนบ้าง
+ข้อมูลนี้ไหลผ่านอยู่แล้วจึงไม่มีต้นทุนเพิ่ม แต่เก็บย้อนหลังไม่ได้ถ้าไม่ใส่ตั้งแต่แรก
+
+**โมเดลกับดัชนีอยู่ใน named volume ไม่ใช่ใน image**
+ไม่งั้น `build` ทุกครั้งจะโหลดใหม่เป็น GB และ image จะบวมจนแชร์กันไม่ไหว
+
+---
+
+## ข้อจำกัดที่รู้อยู่
+
+เลือกไว้แบบนี้เพราะเวลาจำกัด ไม่ใช่มองข้าม
+
+| เรื่อง | สภาพตอนนี้ | ถ้าจะทำต่อ |
+|---|---|---|
+| cross-encoder reranker | ปิดเป็นค่าเริ่มต้น วัดแล้วได้ hit@5 0.93 แต่กิน RAM รวม ~4.3 GB และเพิ่มเวลา ~15 วินาทีต่อคำถามบน CPU ล้วน | เปิดเมื่อมี GPU หรือย้ายไป reranker ตัวเล็กกว่า |
+| คำถามหมวด "เลือกซื้ออุปกรณ์ / งานเอกสาร" | ไปเส้น `general_ai` ทั้งที่คลังมีคำตอบ ตอบถูกแต่ไม่มีเลขอ้างอิง — เป็นผลจากการ map หมวดใน CONTRACT ให้ผังอ่านง่าย | แยกหมวดพวกนี้กลับไป `university_rag` แล้ววัดใหม่ |
+| แผงการตัดสินใจของ agent | กางดูได้เฉพาะแชทรอบปัจจุบัน แชทเก่ากดไม่ได้ ทั้งที่ฐานข้อมูลเก็บ `trace` ไว้ครบแล้ว | ให้ `/api/history` ส่งฟิลด์ `trace` กลับมาด้วย (แก้ ~3 บรรทัดที่ 07 และ 1 บรรทัดที่ 01) |
+| ปุ่มให้คะแนนคำตอบ | ฝั่งหลังบ้านพร้อมหมด (`/api/feedback` · ตาราง `feedback` · export CSV) แต่หน้าเว็บชุดใหม่ยังไม่มีปุ่มให้กด | เติมปุ่มในหน้าแชทแล้วยิง `/api/feedback` ที่มีอยู่แล้ว |
+| ระบบผู้ใช้ | เป็นผู้ใช้ตัวอย่างในฐานข้อมูล ยังไม่มีหน้าสมัครสมาชิก | เพิ่ม endpoint สมัคร + หน้าเว็บ ตาราง `users` รองรับอยู่แล้ว |
+| อัปโหลดไฟล์ | `/api/upload` ยังเป็น stub (ตาราง `uploaded_files` สร้างรอไว้แล้ว) | ต่อ pipeline อ่านไฟล์ → เก็บข้อความ → ส่งเป็น context |
+| โควตา LLM | Groq free tier จำกัดทั้งต่อนาทีและต่อวัน ถ้าใช้หนักจะถอยไปตัวสำรองเอง | ใช้ key แบบเสียเงิน หรือรัน LLM ในเครื่อง |
+
+---
+
+## ทดสอบและวัดผล
+
+```bash
+make smoke     # ยิง /health ทุกตัว แล้วถาม 5 คำถามให้ครบทั้ง 5 route + ประวัติ + สถิติ
+make eval      # รันชุดทดสอบ 64 ข้อผ่าน /api/chat จริง แล้วเขียนรายงาน
+```
+
+`make eval` เขียนออกมาสองไฟล์ — `eval/report.md` และ **`eval/report.html`** ซึ่งเป็นหน้าเว็บไฟล์เดียวจบ
+เปิดด้วยการดับเบิลคลิกได้โดยไม่ต้องต่อเน็ต เอาไปเปิดโชว์ตอนนำเสนอหรือแคปใส่สไลด์ได้เลย
+**ตัวเลขทุกตัวมาจากการรันจริง ไม่มีค่าที่พิมพ์เอง** และทั้งสองไฟล์อยู่ใน `.gitignore` เพราะเป็นผลรัน ไม่ใช่โค้ด
+
+`smoke_test.sh` ครอบคลุมสามเคสที่เคยพังเงียบในระบบแบบนี้ — ขอประวัติ 10 ข้อความล่าสุดจากบทสนทนายาว, กด feedback ทันทีก่อน log ลง DB, และขอประวัติ session ของคนอื่น
+
+ชุด 64 ข้อยิงด้วยบัญชีเดียว จึงชนเพดานจำนวนคำถามต่อนาทีของ `api` ได้ — สคริปต์รอตามที่ระบบบอกแล้วยิงซ้ำให้เอง ไม่นับเป็นข้อที่ตก
+ถ้าอยากกันโควตารายวันของ Groq ไว้ ให้ตั้ง `LLM_PRIMARY=gemini` ก่อนรัน แล้วสลับกลับเมื่อเสร็จ
+
+---
+
+## คู่มือนักพัฒนา
+
+<details>
+<summary><b>ทำส่วนของตัวเอง — ไม่ต้องรอใคร ไม่ต้องทำ mock เอง</b></summary>
+
+ทุกโมดูลตอบตาม `docs/CONTRACT.md` อยู่แล้ว คุณแก้แค่โฟลเดอร์ของตัวเอง ส่วนของเพื่อนที่คุณต้องเรียกจะตอบได้เสมอ งานของใครเสร็จช้าก็ไม่ทำให้คุณติด
+
+```bash
+git checkout develop && git pull
+git checkout -b feature/<เลขโมดูล>-<ชื่อโมดูล>-<github username>
+docker compose up -d --wait                    # ขึ้นทั้งระบบ
+# แก้โค้ดใน services/<โฟลเดอร์ของคุณ>/app/ → reload ให้เองภายในไม่กี่วินาที ไม่ต้อง build ใหม่
+curl localhost:<port ของคุณ>/health            # ยิงทดสอบ service ตัวเองตรง ๆ
+docker compose logs -f <service ของคุณ>        # ดู error
+```
+
+| โมดูล | service | ยิงทดสอบที่ |
+|---|---|---|
+| 01 web | `web` | http://localhost:3000 (หรือ `npm run dev` ดู README ของ 01) |
+| 02 api | `api` | `localhost:8000` |
+| 03 router | `router` | `localhost:8003` |
+| 04 engines | `engines` | `localhost:8004` |
+| 05 retrieval | `retrieval` | `localhost:8005` |
+| 06 generation | `generation` | `localhost:8006` |
+| 07 response-log | `response-log` | `localhost:8007` |
+
+**ต้อง build ใหม่เมื่อไหร่** — reload อัตโนมัติดูแค่ไฟล์ใน `app/`
+ถ้าแก้ `requirements.txt`, `Dockerfile` หรือไฟล์นอก `app/` (เช่น `ingest.py`, `prompts/`) ให้สั่ง `docker compose up -d --build <service>`
+ส่วน `web` build ใหม่ทุกครั้งที่แก้ ถ้าจะแก้บ่อยให้ใช้ `npm run dev`
+
+**ห้ามแก้โฟลเดอร์ของคนอื่น** ถ้าอยากให้เพื่อนตอบอะไรเพิ่ม ให้ทักห้องเขาหรือ `#contract-changes`
+
+</details>
+
+<details>
+<summary><b>ถ้าเครื่องไม่มี <code>make</code></b></summary>
 
 Windows ส่วนใหญ่ไม่มีมาให้ และ macOS บางเครื่องต้องยอมรับ license ของ Xcode ก่อน
 (`sudo xcode-select --switch /Library/Developer/CommandLineTools` แก้ได้เร็วที่สุด) — ใช้คำสั่งเต็มแทนได้ ผลเหมือนกันทุกอย่าง
@@ -83,17 +246,33 @@ Windows ส่วนใหญ่ไม่มีมาให้ และ macOS �
 | `make logs s=router` | `docker compose logs -f --tail=100 router` |
 | `make rebuild s=router` | `docker compose build --no-cache router && docker compose up -d router` |
 | `make smoke` | `bash scripts/smoke_test.sh` |
+| `make warmup` | `docker compose run --rm retrieval python -c "import os; from huggingface_hub import snapshot_download; snapshot_download(os.environ['EMBEDDING_MODEL'])"` |
 | `make ingest` | `docker compose run --rm retrieval python ingest.py` |
 | `make eval` | `python3 scripts/eval_e2e.py` |
 
----
+</details>
 
-## โครงของ repo
+<details>
+<summary><b>ถ้าใช้ Windows</b></summary>
+
+| เรื่อง | ทำแบบนี้ |
+|---|---|
+| ที่ clone repo | ไว้ที่ `C:\dev\chuayduay` **อย่าไว้ใน OneDrive หรือโฟลเดอร์ที่มีเว้นวรรค** — OneDrive ล็อกไฟล์ตอน sync และ docker mount โฟลเดอร์พวกนั้นแล้วพัง |
+| รัน `.sh` | ใช้ **Git Bash** `bash scripts/smoke_test.sh` (PowerShell รัน `.sh` ไม่ได้) · repo ตั้ง `.gitattributes` ให้ `.sh` เป็น LF แล้ว ถ้าเคย clone ก่อนหน้านี้แล้วเจอ `$'\r': command not found` ให้ลบไฟล์นั้นแล้วดึงใหม่ครั้งเดียว `rm scripts/smoke_test.sh && git checkout -- scripts/smoke_test.sh` |
+| `curl` ใน PowerShell | พิมพ์ `curl.exe` ไม่ใช่ `curl` (`curl` ใน PowerShell คือ `Invoke-WebRequest` คนละตัว) |
+| ตั้งตัวแปรก่อนรันคำสั่ง | PowerShell: `$env:API_URL="http://localhost:8000"; npm run dev` (แบบ `API_URL=... npm run dev` ใช้ได้แค่ใน Git Bash) |
+| Python | ใช้ `python` แทน `python3` · เปิด venv ด้วย `.venv\Scripts\activate` แทน `source .venv/bin/activate` |
+| port 5432 ชน | ถ้าเครื่องลง PostgreSQL ไว้แล้ว `docker compose up` จะขึ้น `port is already allocated` → ปิด service PostgreSQL ใน Services ของ Windows ก่อน |
+
+</details>
+
+<details>
+<summary><b>โครงของ repo</b></summary>
 
 ```
 chuayduay/
 ├── docker-compose.yml           8 service + postgres · healthcheck ทุกตัว
-├── docker-compose.override.yml  port ไว้ debug 8003-8007 + hot reload (ใช้เฉพาะตอน dev)
+├── docker-compose.override.yml  port ไว้ debug 8003-8007 + แก้โค้ดใน app/ แล้ว reload ให้เอง (ใช้เฉพาะตอน dev)
 ├── Makefile                     คำสั่งลัดทั้งหมด พิมพ์ make เฉย ๆ เพื่อดูรายการ
 ├── .env.example                 ชื่อ env ทุกตัวพร้อมค่าตัวอย่างที่ปลอดภัย
 ├── docs/                        เอกสารกลาง อ่านก่อนเขียนโค้ด
@@ -110,78 +289,14 @@ chuayduay/
         └── README.md            วิธีรันเดี่ยวและสิ่งที่ต้องแทน
 ```
 
----
-
-## สถานะตอนนี้ — โครงพร้อม เนื้อยังเป็น stub
-
-ทุก service **ตอบ JSON ตรงตาม `docs/CONTRACT.md` แล้ว** แต่ยังไม่มี logic จริงข้างใน
-สิ่งที่ทำให้โครงนี้ต่างจาก stub ทั่วไปคือ **`api` กับ `router` เรียก service ถัดไปผ่าน HTTP จริง** ไม่ได้ตอบค่าปลอมอยู่ในตัวเอง
-ทั้งเส้นตั้งแต่หน้าเว็บจนถึง `response-log` จึงวิ่งครบตั้งแต่วันแรก และถ้าใครต่อผิด contract จะรู้ทันทีไม่ใช่รู้ตอนรวมงาน
-
-**งานของเจ้าของแต่ละโมดูล** คือหาคำว่า `STUB: replace` ในโฟลเดอร์ตัวเองแล้วแทนด้วยของจริง
-**ห้ามเปลี่ยนรูปแบบ request / response** ถ้าคิดว่า contract ผิด ให้ทักใน `#contract-changes` ก่อน
-
-| โมดูล | ตอนนี้ทำอะไรได้ | ที่ต้องมาแทน |
-|---|---|---|
-| 01 web | login + chat ต่อ `api` จริง แสดง badge route และ sources | sidebar ประวัติ, ปุ่ม 👍👎, แผง trace, อัปโหลดไฟล์, dashboard |
-| 02 api | auth ด้วยผู้ใช้ตัวอย่างในหน่วยความจำ, `/api/chat` ครบเส้น, proxy ไป 07 | ต่อ postgres จริง, bcrypt, `/api/upload`, rate limit |
-| 03 router | 5 route ครบด้วย keyword หยาบ ๆ, เรียก 04/05/06 จริง, คืน `trace` | cascade เต็ม 4 ชั้น, ตาราง rule base, fallback, query rewriting |
-| 04 engines | `/general` และ `/local/classify` ตอบค่าปลอม | ต่อ Groq จริง + fallback provider, เทรนโมเดลจำแนก 8 หมวด |
-| 05 retrieval | `/search` คืน chunk ตัวอย่าง 1 ชิ้นที่มี Source ครบ field | ingestion จริง, hybrid BM25 + vector ด้วย RRF, วัด hit@5 |
-| 06 generation | 3 mode ครบ, `passthrough` ไม่เรียก LLM แล้ว | ต่อ LLM จริง, ตรวจ citation, safety + PII, prompt template |
-| 07 response-log | เก็บในหน่วยความจำ, กติกา 4 ข้อทำถูกแล้ว | ต่อ postgres จริง 3 ตาราง, `/stats` คำนวณจริง |
-
----
-
-## การตัดสินใจเชิงออกแบบ
-
-เขียนไว้เพื่อให้อธิบายได้ตอนนำเสนอ และเพื่อไม่ให้มีใครไปแก้กลับโดยไม่รู้เหตุผล
-
-**Retrieval ทำงานเฉพาะ route `university_rag`** ไม่ใช่ทุกคำถาม
-ในแผนภาพต้นแบบ ทุกเส้นวิ่งผ่าน Retrieval แต่คำถามทั่วไปไม่ควรต้องไปค้นคลังความรู้ก่อน — เสียเวลาฟรีและได้ context ที่ไม่เกี่ยวมาปน
-`clarify` กับ `decline` ก็ไม่เรียก service ไหนเลย
-
-**`generation` มีโหมด `passthrough` ที่ไม่เรียก LLM**
-ถ้าไม่มีโหมดนี้ คำถามเดียวจะเรียก LLM สองรอบ (ครั้งแรกที่ `engines` ครั้งที่สองที่ `generation`) ช้าขึ้นเท่าตัวและกินโควตาที่แชร์กันทั้งทีม
-ตรวจได้ง่าย ๆ จาก `model: "none"` ในคำตอบ
-
-**ชื่อ route คง `university_rag` ไว้ตามผังต้นแบบ แต่หน้าเว็บห้ามโชว์ค่าดิบ**
-ความหมายจริงคือ "เส้นทางที่ตอบจากคลังความรู้ที่เราดูแลเอง พร้อมอ้างอิง" หน้าเว็บแปลงเป็นป้ายภาษาคนก่อนแสดงเสมอ
-
-**LLM หลักคือ Groq** Gemini กับ OpenAI เป็นตัวสำรอง
-ทุกเจ้าเรียกผ่านไลบรารี `openai` ตัวเดียวกัน สลับด้วย `base_url` อย่างเดียว — เปลี่ยน provider ได้ด้วยการแก้ `.env` บรรทัดเดียว ไม่ต้องแตะโค้ด
-**อย่า hardcode ชื่อโมเดล** อ่านจาก `GROQ_MODEL` เสมอ เพราะผู้ให้บริการถอดโมเดลออกโดยไม่แจ้งล่วงหน้าได้
-
-**ทุก request มี `X-Request-ID` ส่งต่อทุก hop และทุก service log เป็น JSON บรรทัดเดียว**
-เวลารวมงานแล้วพัง ไล่ `request_id` เดียวกันผ่าน `make logs` จะรู้ทันทีว่าไปตายที่ hop ไหน
-
-**`router` คืน `trace` กลับมาด้วย** บอกว่าตัดสินใจที่ชั้นไหนและใช้เวลาตรงไหนบ้าง
-ข้อมูลนี้ไหลผ่านอยู่แล้วจึงไม่มีต้นทุนเพิ่ม แต่เก็บย้อนหลังไม่ได้ถ้าไม่ใส่ตั้งแต่แรก
-
-**โมเดลกับดัชนีอยู่ใน named volume ไม่ใช่ใน image**
-ไม่งั้น `build` ทุกครั้งจะโหลดใหม่เป็น GB และ image จะบวมจนแชร์กันไม่ไหว
-
----
-
-## ทดสอบและวัดผล
-
-```bash
-make smoke     # ยิง /health ทุกตัว แล้วถาม 5 คำถามให้ครบทั้ง 5 route + ประวัติ + สถิติ
-make eval      # รันชุดทดสอบผ่าน /api/chat จริง แล้วเขียนรายงาน
-```
-
-`make eval` เขียนออกมาสองไฟล์ — `eval/report.md` และ **`eval/report.html`** ซึ่งเป็นหน้าเว็บไฟล์เดียวจบ
-เปิดด้วยการดับเบิลคลิกได้โดยไม่ต้องต่อเน็ต เอาไปเปิดโชว์ตอนนำเสนอหรือแคปใส่สไลด์ได้เลย
-**ตัวเลขทุกตัวมาจากการรันจริง ไม่มีค่าที่พิมพ์เอง** และทั้งสองไฟล์อยู่ใน `.gitignore` เพราะเป็นผลรัน ไม่ใช่โค้ด
-
-`smoke_test.sh` ครอบคลุมสามเคสที่เคยพังเงียบในระบบแบบนี้ — ขอประวัติ 10 ข้อความล่าสุดจากบทสนทนายาว,
-กด feedback ทันทีก่อน log ลง DB, และขอประวัติ session ของคนอื่น
+</details>
 
 ---
 
 ## กติกาการส่งงาน
 
 - คนละหนึ่งโฟลเดอร์ คนละหนึ่ง branch — **แก้ได้เฉพาะ `services/<โฟลเดอร์ของตัวเอง>/`**
+- branch ของแต่ละคนคือ `feature/<เลขโมดูล>-<ชื่อโมดูล>-<github username>` เช่น `feature/05-retrieval-SoSick41`
 - เข้า `develop` ผ่าน Pull Request เท่านั้น **ห้าม push ตรง** · ต้องมีคน approve 1 คน
 - `main` รับ merge จาก `develop` อย่างเดียว ต้อง approve 2 คน
 - เจอบั๊กในงานคนอื่น → **เปิด Issue แท็กเจ้าของ ห้ามแก้เอง** เจ้าของจะได้รู้ว่าของตัวเองพัง
@@ -191,14 +306,7 @@ make eval      # รันชุดทดสอบผ่าน /api/chat จร�
 
 `.github/CODEOWNERS` ผูกโฟลเดอร์กับเจ้าของไว้แล้ว GitHub จะขอ review จากคนที่ถูกต้องให้อัตโนมัติทุก PR
 
-### แจ้งเตือนอัตโนมัติเข้า Discord
-
-| เมื่อไหร่ | ไปที่ไหน |
-|---|---|
-| เปิด / merge / ปิด PR | `#pull-requests` พร้อมบอกว่าเป็นโมดูลไหน ใครเปิด เปลี่ยนกี่ไฟล์ และ ping เจ้าของโมดูลนั้น |
-| มี PR หรือ push แตะ `docs/CONTRACT.md` | `#contract-changes` แจ้งทุกคนทันที เพราะเป็นไฟล์เดียวที่พังแล้วกระทบทั้งทีม |
-
-PR ที่เป็น draft จะไม่กวนใคร จนกว่าจะกด Ready for review
+**แจ้งเตือนอัตโนมัติเข้า Discord** — เปิด / merge / ปิด PR เข้า `#pull-requests` พร้อม ping เจ้าของโมดูลนั้น · PR หรือ push ที่แตะ `docs/CONTRACT.md` เข้า `#contract-changes` ทันที เพราะเป็นไฟล์เดียวที่พังแล้วกระทบทั้งทีม · PR ที่เป็น draft จะไม่กวนใครจนกว่าจะกด Ready for review
 
 ---
 
