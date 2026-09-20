@@ -72,7 +72,8 @@ TASK_INSTRUCTION = {
 
 SYSTEM_PROMPT = (
     "คุณเป็นผู้ช่วยแก้ปัญหามือถือและคอมพิวเตอร์ "
-    "ตอบเป็นภาษาเดียวกับที่ผู้ใช้ใช้ถาม ตอบให้ชัดเจนและนำไปใช้ได้จริง"
+    "ตอบเป็นภาษาเดียวกับที่ผู้ใช้ใช้ถาม ตอบให้ชัดเจนและนำไปใช้ได้จริง "
+    "ห้ามใช้ LaTeX เขียนสูตรเป็นข้อความธรรมดา เช่น ดอกเบี้ย = เงินต้น × อัตรา × ปี"
 )
 
 _clients: dict[str, AsyncOpenAI] = {}
@@ -159,6 +160,14 @@ async def health():
     return health_payload()
 
 
+def _extra_body_for(provider: str) -> dict | None:
+    """gpt-oss ของ groq ใช้ reasoning token คิดก่อนตอบ ซึ่งนับรวมอยู่ใน
+    max_tokens ที่เราตั้งไว้ (MAX_OUTPUT_TOKENS=800) — ถ้าไม่บอกให้คิดแบบ
+    "low" คำตอบยาวๆ อาจโดนตัดกลางคันเพราะโควตาโดน reasoning กินไปก่อน
+    """
+    return {"reasoning_effort": "low"} if provider == "groq" else None
+
+
 @app.post("/general", response_model=EngineResult)
 async def general(req: GeneralRequest):
     jlog(event="general", task=req.task, query_len=len(req.query))
@@ -180,15 +189,23 @@ async def general(req: GeneralRequest):
             model=PROVIDERS[PRIMARY]["model"],
             messages=messages,
             max_tokens=MAX_OUTPUT_TOKENS,
+            extra_body=_extra_body_for(PRIMARY),
         )
     except (APITimeoutError, APIStatusError, APIConnectionError) as e:
         jlog(event="general_primary_failed", provider=PRIMARY, error=str(e))
         used_provider = FALLBACK
+        # ถ้าตัวสำรองไม่มี API key เลย ยิง request ไปก็ได้แค่ 400 Missing
+        # Authorization กลับมา — raise ทันทีดีกว่า ไม่ต้องเสียเวลายิงจริง
+        # แล้ว log ก็สะอาดกว่า ไล่บั๊กง่ายขึ้น
+        if not PROVIDERS[FALLBACK]["api_key"]:
+            jlog(event="general_fallback_skipped_no_key", provider=FALLBACK)
+            raise
         try:
             resp = await _get_client(FALLBACK).chat.completions.create(
                 model=PROVIDERS[FALLBACK]["model"],
                 messages=messages,
                 max_tokens=MAX_OUTPUT_TOKENS,
+                extra_body=_extra_body_for(FALLBACK),
             )
         except (APITimeoutError, APIStatusError, APIConnectionError) as e2:
             jlog(event="general_fallback_failed", provider=FALLBACK, error=str(e2))
