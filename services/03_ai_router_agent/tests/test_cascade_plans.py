@@ -419,3 +419,21 @@ def test_clarify_message_does_not_assume_a_device_problem(calls):
     # ก่อนหน้านี้ถามหาอุปกรณ์ทุกครั้ง แม้ผู้ใช้จะแค่ทักทายหรือพิมพ์ทดสอบ
     assert "เล่าอาการ" in out.answer
     assert "ถ้าเป็นเรื่องอุปกรณ์" in out.answer
+
+
+def test_rag_dead_end_detected_when_marker_sits_at_the_end(calls, monkeypatch):
+    """06 เปลี่ยน prompt เป็น "ตอบเท่าที่เอกสารรองรับ แล้วบอกท้ายคำตอบว่าส่วนที่เหลือไม่มีในคลัง"
+
+    ประโยคบอกว่าเอกสารไม่พอจึงไปอยู่ท้ายคำตอบ ของเดิมดักแค่ช่วงต้นเลยหลุด
+    (ยิงจริง 4 รอบ หลุด 2 รอบ ประโยคอยู่ตำแหน่ง 173 และ 738)
+    """
+    long_answer = ("ปริ้นเตอร์รุ่นนี้ไฟสีส้มมักหมายถึงตลับหมึกหรือกระดาษติด " * 12
+                   + "\n\nขออภัย ไม่พบข้อมูลที่เพียงพอในคลังความรู้สำหรับส่วนที่เหลือ")
+    assert long_answer.index("ไม่พบข้อมูลที่เพียงพอ") > 120      # ประโยคอยู่พ้นช่วงที่เคยดัก
+
+    monkeypatch.setattr(clients, "generate", _dead_end_generation(answer=long_answer))
+    out = plan("university_rag", query="ปริ้นเตอร์ Epson L3210 ไฟกะพริบสีส้ม")
+
+    assert out.route == "general_ai"
+    assert "ไม่ได้อ้างอิงเอกสาร" in out.answer
+    assert calls["general"]
