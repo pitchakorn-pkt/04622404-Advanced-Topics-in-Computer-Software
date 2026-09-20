@@ -72,9 +72,6 @@ def mask_pii(text: str) -> str:
     return text
 
 
-# 1. อัปเดต REGEX เลขบัตรประชาชนรองรับขีด/เว้นวรรค
-REGEX_THAI_NATIONAL_ID = re.compile(r"(?<![\d-])[1-9][- ]?\d{4}[- ]?\d{5}[- ]?\d{2}[- ]?\d(?![\d-])")
-
 def verify_and_clean_citations(
     answer: str, available_contexts: List[Any]
 ) -> Tuple[str, List[Source]]:
