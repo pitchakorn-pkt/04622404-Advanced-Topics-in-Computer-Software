@@ -28,8 +28,8 @@ RLOG = os.getenv("RESPONSE_LOG_URL", "http://response-log:8000")
 SECRET = os.getenv("JWT_SECRET_KEY", "dev-only-change-me")
 T_ROUTER = 75.0   # ต้องมากกว่างบรวมของ router (70s) ตาม CONTRACT ข้อ 0
 T_RLOG = 5.0
-CHAT_RATE_LIMIT = 10
-RATE_WINDOW = 60.0
+CHAT_RATE_LIMIT = int(os.getenv("CHAT_RATE_LIMIT", "10"))
+RATE_WINDOW = float(os.getenv("CHAT_RATE_WINDOW", "60"))
 
 ERROR_CODES = {
     400: "BAD_REQUEST", 401: "UNAUTHORIZED", 404: "NOT_FOUND", 405: "METHOD_NOT_ALLOWED",
