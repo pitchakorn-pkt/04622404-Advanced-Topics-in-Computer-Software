@@ -2,9 +2,8 @@
 
 compose service: `api` · ฟัง `0.0.0.0:8000` · **เปิดออกเครื่องจริงที่ port 8000**
 
-## ตอนนี้เป็น stub
-
-auth ใช้ผู้ใช้ตัวอย่างในหน่วยความจำ ยังไม่ต่อ postgres — แต่ `/api/chat` **เรียก router และ response-log จริง**
+## auth
+ใช้ตาราง `users` ใน postgres (bcrypt) · api สร้างตารางและ seed ผู้ใช้ตัวอย่างให้เองตอนเริ่มทำงาน
 ผู้ใช้ตัวอย่าง: `student/student` · `staff/staff` · `demo/demo`
 
 ```bash
