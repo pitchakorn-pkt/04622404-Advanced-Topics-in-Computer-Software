@@ -1,3 +1,145 @@
+# LAB06 — Agentic AI System: ChuayDuay (team project)
+
+English · [ภาษาไทย](README.th.md)
+
+**Team repository: [pitchakorn-pkt/chuayduay](https://github.com/pitchakorn-pkt/chuayduay)**
+
+ChuayDuay ("help!") is a Thai-language assistant for everyday phone and computer problems,
+built by a team of eight as the DL-06 *Agentic AI System I* assignment. It is an agentic
+RAG system split into eight services that talk over HTTP: a router decides, question by
+question, whether to answer from our own knowledge base with citations, from a general
+LLM, from a locally trained classifier, to ask the user to clarify, or to decline. The
+whole stack starts with one `docker compose` command.
+
+**My part: team lead and module 08 — Docker / Integration.** Each of the other seven
+members owned one service. I owned what joins them: the repository and its rules, the
+API contract every service codes against, the Docker setup, the end-to-end tests and
+measurements, reviewing and merging every pull request, and the Discord server the team
+worked in. The team's own README, below the line, describes the system and its measured
+results; this section describes what I did.
+
+## What I did
+
+### 1. Set the project up so eight people could start on day one without waiting for each other
+
+Eight people building eight services in parallel only works if nobody has to wait for
+the service in front of theirs. On the first day (16 September) I put three things in
+place before anyone wrote feature code:
+
+- **The contract** — [`docs/CONTRACT.md`](docs/CONTRACT.md) fixes the JSON shape of every
+  call between services and the name of every environment variable. When code and the
+  contract disagree, the code is wrong. It reached v1.7 by the end; every change went
+  through a pull request and set off an alert in Discord.
+- **A running skeleton of all eight services** — every service existed as a working stub
+  that already answered in the contract's format, and `api` and `router` really called the
+  next service over HTTP. So from the first hour anyone could run the whole system, replace
+  their own stub with real code, and see it work end to end — no one had to write mocks of
+  someone else's service.
+- **The data** — the knowledge base (`daily_tech_qa.txt`, question–answer pairs in 10
+  categories) and the 60-question golden set with answer keys came from my own
+  [`LAB04`](../LAB04/). Handing them over on day one meant the retrieval module could be
+  built and measured immediately instead of waiting for a dataset.
+
+The repository rules followed from one requirement of the assignment: every member's
+contribution had to be visible. **One person, one folder, one branch**: each member edits
+only `services/<their folder>/` on their own `feature/…` branch, gets into `develop` only
+through a pull request, and `main` takes merges from `develop` only. A bug in someone
+else's service is reported as an Issue tagged to its owner, not fixed on their behalf —
+so the commit history shows who really did what. Branch protection enforces the review
+step, and `.github/CODEOWNERS` maps each folder to its owner so GitHub asks the right
+person to review every pull request automatically.
+
+### 2. Organised the work so each member knew exactly what to do
+
+- **A brief for every module**, posted and pinned in that member's own Discord room: what
+  the module is responsible for, which folder and branch are theirs, what it receives and
+  returns according to the contract, and which module waits on it. When the first briefs
+  turned out to contradict the skeleton (they still asked people to build things that
+  already existed), I rewrote all seven and re-pinned them on day two.
+- **Shared documents** in [`docs/`](docs/): the plan overview, the schedule (who delivers
+  what on which day, who waits for whom), and a git guide written for members who had never
+  used git before.
+- **A Discord server built by a script, not by hand.** I wrote a bot (`setup_discord.py`,
+  kept outside this repository because it holds the bot token) that reads one
+  `config.yaml` and creates everything: 9 roles (the lead plus one per module, so
+  `@retrieval` reaches the right person), 18 channels in 3 categories — a shared area, one
+  room per module, and rooms for work that crosses modules — the webhooks, and the pinned
+  brief in each module room. It is idempotent, so it can be re-run after changing the
+  config without creating duplicates.
+- **Notifications from GitHub to Discord** ([`.github/workflows/`](.github/workflows/)):
+  one workflow posts when a pull request is opened, merged or closed and mentions the
+  module's owner; another posts a loud alert whenever anyone touches `CONTRACT.md`,
+  because it is the one file whose breakage hits all eight people at once.
+
+### 3. Module 08 — Docker and integration
+
+| File | |
+|---|---|
+| `docker-compose.yml` | all services, PostgreSQL, health checks, and named volumes for models and the search index so images stay small and nothing re-downloads on every build |
+| `docker-compose.override.yml` | development mode: edit code in `app/` and see it live in 2–4 seconds without rebuilding, including on Windows |
+| `Makefile` | `make up / ps / logs / smoke / warmup / ingest / eval / backup` — one command per job, with the full `docker compose` equivalent written in the docs for machines without `make` |
+| `scripts/smoke_test.sh` | 14 checks across the whole path — every service's `/health`, login, one question per route (all 5), history and statistics |
+| `scripts/eval_e2e.py`, `eval/golden.jsonl` | the 64-question end-to-end evaluation called through `/api/chat` like a real user; writes `eval/report.md` and a self-contained `eval/report.html` |
+| `08_monitoring_deployment/README.md` | everyday commands, how to debug a failed integration by following one `request_id` through every hop, and a section for members on Windows |
+
+Every request carries an `X-Request-ID` through every hop and every service logs one JSON
+line per event, which is what makes "which service broke?" answerable with a single
+`make logs`.
+
+### 4. Reviewed and merged every pull request
+
+Of the 35 pull requests in the repository, 19 came from the other seven members. I
+reviewed them against the contract and by running the branch on a separate copy of the
+stack — **19 approvals and 5 requests for changes** in total — and merged 14 of them
+myself (the rest were merged by their authors). When a member's fix was ready but not yet in
+a pull request close to the presentation, I opened the pull request for them
+with their commits and authorship intact (#19, module 06).
+
+The review that mattered most was not of a diff. On 20 September I sent unusual inputs
+through `/api/chat` the way a real user would — typos, mixed Thai and English, follow-up
+questions, jailbreak attempts, instructions hidden inside an attached file — and reported
+each finding to its owner. The serious one was a prompt injection through file content in
+module 04; others were a dead end on the RAG route when the answer was not in the
+knowledge base (03), greetings being asked to clarify (03), and citations of the form
+`[1, 2, 3]` being dropped (06). The router and injection issues were fixed by their
+owners in #22 and #25, and the rule for the RAG route went into the contract as v1.7 (#24).
+
+### 5. Tested the whole system and wrote down the numbers
+
+Before `develop` went to `main` I ran three layers on the real stack: the unit tests of
+modules 02 and 03 plus the retrieval evaluation, then the smoke test (14/14), then the
+64-question evaluation. Its results — **85.9% route accuracy, 51/60 answers with real
+citations, 2.2 s average latency, 0 failed requests** — were posted on the release pull
+request (#30) and are the figures in the team README below. I then rewrote the team README
+so that every claim in it was checked against the code, and every number says which
+command reproduces it.
+
+## Timeline
+
+| Date | |
+|---|---|
+| 16 Sep | repository, branch rules, CODEOWNERS, contract, docs, skeleton of all 8 services, Discord server and notifications |
+| 17 Sep | live reload for development ([#1](https://github.com/pitchakorn-pkt/chuayduay/pull/1)); briefs rewritten and re-pinned |
+| 19 Sep | volume permissions on fresh machines (#9), team table with names and student IDs (#10, #11), smoke test checks the real route + Windows section (#15), real 64-question evaluation (#16) |
+| 20 Sep | fallback model moved to `gemini-3.5-flash-lite` (#20), contract v1.7 (#24), evaluation survives the chat rate limit (#29); edge-case sweep reported to owners; all 8 modules on `develop` |
+| 21 Sep | release to `main` (#30), README rewritten and checked against the code (#31–#33), final release with the rating button from module 01 (#35) |
+
+On `main`, 31 of the 89 non-merge commits are mine, and the 29 merge commits under the
+name `CHAMP` are also mine (my GitHub display name).
+
+## What is in this folder
+
+This folder is the whole team repository, not only my part. Mine are the files at the
+root (`docker-compose*.yml`, `Makefile`, `.env.example`, `scripts/`, `eval/`, `.github/`),
+[`08_monitoring_deployment/`](08_monitoring_deployment/) and [`docs/`](docs/). Each folder
+under [`services/`](services/) belongs to the member named in the team table below; I wrote
+the first skeleton of each, which its owner then replaced. How to run it is in the section
+"ทำซ้ำผลวัดเอง" below.
+
+Pulled with `git subtree` from [pitchakorn-pkt/chuayduay](https://github.com/pitchakorn-pkt/chuayduay), branch `main`.
+
+---
+
 # ช่วยด้วย (ChuayDuay)
 
 **ผู้ช่วยตอบคำถามภาษาไทยเรื่องปัญหาการใช้งานมือถือและคอมพิวเตอร์** ตอบจากคลังความรู้ของระบบเองพร้อมแหล่งอ้างอิงที่ตรวจสอบได้
