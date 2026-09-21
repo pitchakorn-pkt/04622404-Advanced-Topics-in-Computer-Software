@@ -1,0 +1,8 @@
+fastapi==0.115.*
+uvicorn[standard]==0.32.*
+pydantic==2.9.*
+httpx==0.27.*
+# ตัดคำไทยให้ชั้น 1 เทียบ keyword ได้ตรงขอบเขตคำ ไม่ใช่เทียบแบบ substring
+pythainlp==5.0.*
+# ชั้น 3 เรียก LLM — ทั้งทีมใช้ไลบรารีตัวเดียวกันแล้วสลับเจ้าด้วย base_url (CONTRACT ข้อ 7)
+openai==1.54.*

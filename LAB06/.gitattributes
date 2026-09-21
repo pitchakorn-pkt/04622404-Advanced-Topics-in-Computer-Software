@@ -1,0 +1,2 @@
+# สคริปต์ shell ต้องเป็น LF เสมอ — ถ้า Windows แปลงเป็น CRLF ตอน checkout bash จะพังด้วย $'\r': command not found
+*.sh text eol=lf

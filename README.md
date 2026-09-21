@@ -26,7 +26,7 @@ Each lab lives in its own folder, `LAB01` through `LAB10`, with the final projec
 | LAB03 | no lab assigned — break in the course schedule | [`LAB03/`](LAB03/) |
 | LAB04 | Full RAG system over a Thai Q&A corpus on everyday phone and computer problems, with hybrid retrieval, reranking, and a measured comparison of Thai-language retrieval settings — see [`LAB04/README.md`](LAB04/README.md) | [`LAB04/`](LAB04/) |
 | LAB05 | Collected the problem write-ups from every system built in this course — 21 problems from `LAB01`, `LAB02` and `LAB04` in one folder, with the repetitions across them read side by side — see [`LAB05/README.md`](LAB05/README.md) | [`LAB05/`](LAB05/) |
-| LAB06 | Oral check on understanding: presented the RAG workflow of my LAB04 system 1:1 with the instructor, mapping every step of the flow to the file and function behind it — see [`LAB06/README.md`](LAB06/README.md) | [`LAB06/`](LAB06/) |
+| LAB06 | Team lead and module 08 (Docker / Integration) of ChuayDuay, an eight-person agentic RAG system for Thai phone and computer questions: the API contract, a running skeleton of all eight services, the Discord server and GitHub notifications, reviewing and merging every pull request, and the end-to-end tests — see [`LAB06/README.md`](LAB06/README.md); team repository [pitchakorn-pkt/chuayduay](https://github.com/pitchakorn-pkt/chuayduay) | [`LAB06/`](LAB06/) |
 | LAB07 – LAB10 | not started yet | [`LAB07/`](LAB07/) … [`LAB10/`](LAB10/) |
 | Final Project | not started yet | [`Final-Project/`](Final-Project/) |
 
