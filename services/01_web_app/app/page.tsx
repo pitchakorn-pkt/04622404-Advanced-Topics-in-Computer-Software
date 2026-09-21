@@ -403,7 +403,7 @@ export default function Chat() {
           <div className="status"><span className="dot" /> พร้อมช่วยคุณ</div>
         </div>
 
-        <div className="thread" ref={threadRef}>
+        <div className="thread" ref={threadRef} aria-live="polite">
           {loadingHistory && <div className="side-label">กำลังโหลดประวัติ…</div>}
 
           {!msgs.length && !loadingHistory && (
@@ -560,7 +560,7 @@ export default function Chat() {
         <div className="composer">
           <input value={text} onChange={(e) => setText(e.target.value)}
                  onKeyDown={(e) => e.key === "Enter" && send()}
-                 placeholder="พิมพ์ปัญหาไอทีของคุณได้เลย…" />
+                 placeholder="พิมพ์ปัญหาไอทีของคุณได้เลย…" disabled={busy} />
           <button className="btn-send" onClick={send} disabled={busy} title="ส่ง" aria-label="ส่ง"><IconSend /></button>
         </div>
       </main>
