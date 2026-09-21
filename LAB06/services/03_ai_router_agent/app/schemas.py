@@ -1,0 +1,56 @@
+"""รูปแบบข้อมูลตาม docs/CONTRACT.md ข้อ 2 — ห้ามเปลี่ยนชื่อ field"""
+from __future__ import annotations
+
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field
+
+Route = Literal["general_ai", "university_rag", "local_ai", "clarify", "decline"]
+
+
+class TokenUsage(BaseModel):
+    input: int = 0
+    output: int = 0
+
+
+class HistoryMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
+class RouteUser(BaseModel):
+    id: str
+    role: str = "student"
+    faculty: str | None = None
+
+
+class RouteRequest(BaseModel):
+    request_id: str
+    session_id: str
+    user: RouteUser
+    query: str
+    history: list[HistoryMessage] = Field(default_factory=list)
+    file_text: str | None = None
+
+
+class Trace(BaseModel):
+    decided_at_layer: Literal["guard", "rules", "classifier", "llm"]
+    steps: list[dict[str, Any]] = Field(default_factory=list)
+    # เพิ่มแบบ optional ตามที่ CONTRACT ข้อ 0 อนุญาต (ไม่ลบ/ไม่เปลี่ยนชื่อ field เดิม)
+    # หน้าเว็บของ 01 อ่าน `reasoning` จาก ChatResponse ก่อน แล้ว fallback มาที่ `trace.reasoning`
+    # แต่ ChatResponse ของ 02 ยังไม่มี field นั้น — ใส่ไว้ใน trace ซึ่ง 02 ส่งต่อทั้งก้อนอยู่แล้ว
+    # ผู้ใช้จึงเห็นเหตุผลการตัดสินใจได้ตั้งแต่วันนี้ โดยไม่ต้องรอใครแก้โค้ด
+    reasoning: str | None = None
+
+
+class RouteResponse(BaseModel):
+    request_id: str
+    answer: str
+    sources: list[dict] = Field(default_factory=list)
+    route: Route
+    engines_used: list[str] = Field(default_factory=list)
+    confidence: float = 0.0
+    reasoning: str = ""
+    latency_ms: int = 0
+    token_usage: TokenUsage = Field(default_factory=TokenUsage)
+    trace: Trace | None = None
