@@ -1,0 +1,116 @@
+# แจ้งเตือน Discord เมื่อมีคนเปิด / merge / ปิด Pull Request
+#
+# ต้องมีใน repo (ตั้งไว้แล้ว):
+#   Secret    DISCORD_WEBHOOK_PR    webhook ของ #pull-requests
+#   Variable  DISCORD_CHANNEL_IDS   JSON map ชื่อห้องโมดูล -> channel id (ใช้ทำลิงก์กดได้)
+#   Variable  DISCORD_ROLE_IDS      JSON map ชื่อห้องโมดูล -> role id (ใช้ ping เจ้าของงาน)
+#
+# จับโมดูลจากชื่อ branch รูปแบบ  feature/<เลข>-<โมดูล>-<github-username>
+#   feature/05-retrieval-somchai  ->  05-retrieval
+name: Discord PR Notify
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, closed]
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ส่งแจ้งเตือนเข้า Discord
+        env:
+          WEBHOOK_URL:  ${{ secrets.DISCORD_WEBHOOK_PR }}
+          CHANNEL_IDS:  ${{ vars.DISCORD_CHANNEL_IDS }}
+          ROLE_IDS:     ${{ vars.DISCORD_ROLE_IDS }}
+          ACTION:       ${{ github.event.action }}
+          MERGED:       ${{ github.event.pull_request.merged }}
+          DRAFT:        ${{ github.event.pull_request.draft }}
+          PR_NUMBER:    ${{ github.event.pull_request.number }}
+          PR_TITLE:     ${{ github.event.pull_request.title }}
+          PR_URL:       ${{ github.event.pull_request.html_url }}
+          PR_USER:      ${{ github.event.pull_request.user.login }}
+          MERGED_BY:    ${{ github.event.pull_request.merged_by.login }}
+          HEAD_REF:     ${{ github.event.pull_request.head.ref }}
+          BASE_REF:     ${{ github.event.pull_request.base.ref }}
+          CHANGED:      ${{ github.event.pull_request.changed_files }}
+          ADDITIONS:    ${{ github.event.pull_request.additions }}
+          DELETIONS:    ${{ github.event.pull_request.deletions }}
+          REPO:         ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # PR ที่ยังเป็น draft ไม่ต้องกวนใคร จนกว่าจะกด Ready for review
+          if [ "${DRAFT}" = "true" ] && [ "${ACTION}" != "closed" ]; then
+            echo "PR ยังเป็น draft -- ข้าม"; exit 0
+          fi
+
+          # ---- 1) หาว่าเป็นโมดูลไหน จากชื่อ branch -----------------------------
+          KEY="$(printf '%s' "${HEAD_REF}" | sed -nE 's#^feature/([0-9]{2}-[a-z]+)-.*$#\1#p')"
+          case "${KEY}" in
+            01-web)        LABEL="01 Web App" ;;
+            02-api)        LABEL="02 API Backend" ;;
+            03-router)     LABEL="03 AI Router" ;;
+            04-engines)    LABEL="04 AI Engines" ;;
+            05-retrieval)  LABEL="05 Retrieval" ;;
+            06-generation) LABEL="06 LLM Generation" ;;
+            07-responselog) LABEL="07 Response / Log"; KEY="07-logging" ;;
+            08-infra)      LABEL="08 Docker / Integration" ;;
+            *)             LABEL=""; KEY="" ;;
+          esac
+
+          WHERE=""; MENTION=""; ALLOWED='{"parse":[]}'
+          if [ -n "${KEY}" ]; then
+            CID="$(printf '%s' "${CHANNEL_IDS:-{\}}" | jq -r --arg k "${KEY}" '.[$k] // empty')"
+            if [ -n "${CID}" ]; then WHERE="โมดูล **${LABEL}** <#${CID}>"; else WHERE="โมดูล **${LABEL}**"; fi
+            # ping เจ้าของโมดูลถ้ารู้ role id — allowed_mentions ระบุเฉพาะ role นั้น
+            # กันไม่ให้ข้อความที่มี @everyone หลุดไป ping ทั้งเซิร์ฟเวอร์โดยไม่ตั้งใจ
+            RID="$(printf '%s' "${ROLE_IDS:-{\}}" | jq -r --arg k "${KEY}" '.[$k] // empty')"
+            if [ -n "${RID}" ]; then
+              MENTION="<@&${RID}> "
+              ALLOWED="$(jq -nc --arg r "${RID}" '{parse: [], roles: [$r]}')"
+            fi
+          fi
+
+          # ---- 2) ข้อความและสีตามสถานะ ----------------------------------------
+          case "${ACTION}" in
+            closed)
+              if [ "${MERGED}" = "true" ]; then
+                HEAD_LINE="merge เข้า \`${BASE_REF}\` แล้ว"; COLOR=10181046; WHO="merge โดย ${MERGED_BY}"
+              else
+                HEAD_LINE="ปิดโดยไม่ merge"; COLOR=15158332; WHO="ปิดโดย ${PR_USER}"
+              fi ;;
+            opened)           HEAD_LINE="เปิด PR ใหม่";          COLOR=3066993;  WHO="เปิดโดย ${PR_USER}" ;;
+            reopened)         HEAD_LINE="เปิด PR ขึ้นมาใหม่";     COLOR=15844367; WHO="เปิดโดย ${PR_USER}" ;;
+            ready_for_review) HEAD_LINE="PR พร้อมให้รีวิวแล้ว";  COLOR=3066993;  WHO="โดย ${PR_USER}" ;;
+            *) echo "ไม่รองรับ action '${ACTION}'"; exit 0 ;;
+          esac
+
+          # เตือนถ้ามีคนเปิด PR เข้า main โดยไม่ตั้งใจ (PR ของสมาชิกต้องเข้า develop)
+          WARN=""
+          if [ "${BASE_REF}" = "main" ] && [ "${HEAD_REF}" != "develop" ]; then
+            WARN=$'\n\n⚠️ **PR นี้ตั้ง base เป็น `main`** — PR ของสมาชิกต้องเข้า `develop` กด Edit ข้างชื่อ PR แล้วเปลี่ยน base ได้เลย ไม่ต้องปิดแล้วเปิดใหม่'
+          fi
+
+          CONTENT="${MENTION}${WHERE:+${WHERE} · }${HEAD_LINE}"
+          DESC="$(printf '`%s` → `%s`\n%s\n\nเปลี่ยน %s ไฟล์  (+%s / −%s)%s' \
+            "${HEAD_REF}" "${BASE_REF}" "${WHO}" "${CHANGED}" "${ADDITIONS}" "${DELETIONS}" "${WARN}")"
+
+          jq -nc \
+            --arg content "${CONTENT}" \
+            --argjson am  "${ALLOWED}" \
+            --arg title   "#${PR_NUMBER} ${PR_TITLE}" \
+            --arg url     "${PR_URL}" \
+            --arg desc    "${DESC}" \
+            --argjson color "${COLOR}" \
+            --arg footer  "${REPO}" \
+            '{username:"GitHub",
+              content:$content,
+              allowed_mentions:$am,
+              embeds:[{title:$title,url:$url,description:$desc,color:$color,
+                       footer:{text:$footer},timestamp:(now|todate)}]}' \
+          | curl -sS --fail-with-body -X POST -H "Content-Type: application/json" -d @- "${WEBHOOK_URL}"
+
+          echo "ส่งแล้ว: ${HEAD_LINE} (${HEAD_REF})"

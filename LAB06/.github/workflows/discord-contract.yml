@@ -1,0 +1,89 @@
+# เตือนดัง ๆ เมื่อมีคนแตะ docs/CONTRACT.md
+#
+# CONTRACT คือไฟล์เดียวในรีโปที่พังแล้วกระทบทั้ง 8 คนพร้อมกัน
+# กติกาของทีมคือต้องบอกก่อนแก้ แต่กติกาที่พึ่งความจำคนมันพัง จึงให้ระบบเตือนเอง
+#
+# ต้องมีใน repo (ตั้งไว้แล้ว):
+#   Secret  DISCORD_WEBHOOK_CONTRACT   webhook ของ #contract-changes
+name: Discord Contract Alert
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review, closed]
+    paths:
+      - "docs/CONTRACT.md"
+  push:
+    branches: [main, develop]
+    paths:
+      - "docs/CONTRACT.md"
+
+permissions:
+  contents: read
+
+jobs:
+  alert:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: แจ้งเตือนการแก้ contract
+        env:
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_CONTRACT }}
+          EVENT:       ${{ github.event_name }}
+          ACTION:      ${{ github.event.action }}
+          MERGED:      ${{ github.event.pull_request.merged }}
+          PR_NUMBER:   ${{ github.event.pull_request.number }}
+          PR_TITLE:    ${{ github.event.pull_request.title }}
+          PR_URL:      ${{ github.event.pull_request.html_url }}
+          PR_USER:     ${{ github.event.pull_request.user.login }}
+          BASE_REF:    ${{ github.event.pull_request.base.ref }}
+          HEAD_REF:    ${{ github.event.pull_request.head.ref }}
+          PUSH_USER:   ${{ github.event.pusher.name }}
+          PUSH_URL:    ${{ github.event.compare }}
+          BRANCH:      ${{ github.ref_name }}
+          BEFORE:      ${{ github.event.before }}
+          SHA:         ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          F="docs/CONTRACT.md"
+
+          if [ "${EVENT}" = "pull_request" ]; then
+            git fetch -q origin "${BASE_REF}"
+            STAT="$(git diff --numstat "origin/${BASE_REF}...HEAD" -- "$F" | awk '{print "+"$1" / −"$2}')"
+            VER="$(git diff "origin/${BASE_REF}...HEAD" -- "$F" | grep -E '^\+.*ข้อตกลง API ระหว่าง service.*v[0-9]' | head -1 | grep -oE 'v[0-9]+\.[0-9]+' || true)"
+            if [ "${ACTION}" = "closed" ]; then
+              [ "${MERGED}" = "true" ] || exit 0
+              TITLE="CONTRACT ถูกแก้และ merge เข้า ${BASE_REF} แล้ว"; COLOR=15158332
+              BODY="$(printf 'PR #%s โดย **%s**\nบรรทัดที่เปลี่ยน: %s\n\n**ทุกคนต้องอ่านทันที** โค้ดที่เขียนตาม contract เดิมอาจใช้ไม่ได้แล้ว\nดึงของล่าสุดมาก่อนเริ่มงาน: `git fetch origin && git merge origin/develop`' "${PR_NUMBER}" "${PR_USER}" "${STAT:-ไม่ทราบ}")"
+            else
+              TITLE="มี PR ขอแก้ CONTRACT"; COLOR=15844367
+              BODY="$(printf 'PR #%s โดย **%s** — `%s` → `%s`\nบรรทัดที่เปลี่ยน: %s\n\n**อย่าเพิ่ง approve ถ้ายังไม่ได้คุยกันในห้องนี้**\nเจ้าของ service ที่เกี่ยวข้องทั้งสองฝั่งต้องเห็นชอบก่อน' "${PR_NUMBER}" "${PR_USER}" "${HEAD_REF}" "${BASE_REF}" "${STAT:-ไม่ทราบ}")"
+            fi
+            LINK="${PR_URL}"; HEADING="#${PR_NUMBER} ${PR_TITLE}"
+          else
+            STAT="$(git diff --numstat "${BEFORE}" "${SHA}" -- "$F" 2>/dev/null | awk '{print "+"$1" / −"$2}')"
+            TITLE="CONTRACT ถูกแก้โดย push ตรงเข้า ${BRANCH}"; COLOR=15158332
+            BODY="$(printf 'โดย **%s**\nบรรทัดที่เปลี่ยน: %s\n\n**ทุกคนต้องอ่านทันที** และเช็กว่าโค้ดตัวเองยังตรง contract อยู่ไหม' "${PUSH_USER}" "${STAT:-ไม่ทราบ}")"
+            LINK="${PUSH_URL}"; HEADING="push เข้า ${BRANCH}"
+            VER=""
+          fi
+
+          [ -n "${VER:-}" ] && BODY="${BODY}"$'\n'"เวอร์ชันใหม่: **${VER}**"
+
+          jq -nc \
+            --arg content "📜 @everyone มีการแก้ \`docs/CONTRACT.md\`" \
+            --arg title   "${HEADING}" \
+            --arg url     "${LINK}" \
+            --arg desc    "${BODY}" \
+            --arg tname   "${TITLE}" \
+            --argjson color "${COLOR}" \
+            '{username:"Contract Watch",
+              content:$content,
+              allowed_mentions:{parse:["everyone"]},
+              embeds:[{author:{name:$tname},title:$title,url:$url,description:$desc,
+                       color:$color,timestamp:(now|todate)}]}' \
+          | curl -sS --fail-with-body -X POST -H "Content-Type: application/json" -d @- "${WEBHOOK_URL}"
+
+          echo "แจ้งเตือนแล้ว: ${TITLE}"
