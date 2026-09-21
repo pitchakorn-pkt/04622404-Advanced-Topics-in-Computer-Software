@@ -1,0 +1,31 @@
+# ใครเป็นเจ้าของไฟล์ไหน — GitHub จะขอ review จากคนในรายการนี้อัตโนมัติ
+# กฎที่ตรงเป็น "อันสุดท้าย" ชนะ ดังนั้นกฎของ Dockerfile ต้องอยู่ล่างสุด
+#
+# ใส่ username จริงครบแล้ว — GitHub จะขอ review จากเจ้าของโฟลเดอร์ให้อัตโนมัติทุก PR
+# หมายเหตุ: คนที่ยังไม่ตอบรับคำเชิญ collaborator จะถูกข้ามไปเงียบ ๆ ไม่ใช่ error
+
+*                                   @pitchakorn-pkt
+
+/services/01_web_app/               @jakkrich0912-web
+/services/02_api_backend/           @Chakamon02
+/services/03_ai_router_agent/       @Patcharanat23
+/services/04_ai_model_selection/    @pathumpornjorrapong-ops
+/services/05_retrieval_knowledge/   @SoSick41
+/services/06_llm_generation/        @phitphibul67
+/services/07_response_logging/      @jirapa-gm
+
+# ของหัวหน้า — กล่องที่ใส่ของทุกคน
+/docs/                              @pitchakorn-pkt
+/scripts/                           @pitchakorn-pkt
+/eval/                              @pitchakorn-pkt
+/08_monitoring_deployment/          @pitchakorn-pkt
+/.github/                           @pitchakorn-pkt
+/docker-compose.yml                 @pitchakorn-pkt
+/docker-compose.override.yml        @pitchakorn-pkt
+/.env.example                       @pitchakorn-pkt
+/Makefile                           @pitchakorn-pkt
+/README.md                          @pitchakorn-pkt
+
+# กฎสองข้อนี้ต้องอยู่ล่างสุด เพราะกฎที่ตรงเป็นอันสุดท้ายชนะ
+/services/*/Dockerfile              @pitchakorn-pkt
+/docs/CONTRACT.md                   @pitchakorn-pkt

@@ -1,0 +1,12 @@
+{"id": "s01", "query": "สวัสดี", "expected_route": "general_ai", "note": "ทักทายเฉย ๆ ต้องทักกลับ ไม่ใช่ถามว่าใช้อุปกรณ์อะไร"}
+{"id": "s02", "query": "สวัสดีครับ ช่วยอะไรได้บ้าง", "expected_route": "general_ai", "note": "ถามว่าช่วยอะไรได้ = แนะนำตัว ไม่ใช่ clarify"}
+{"id": "s03", "query": "เทสๆ", "expected_route": "general_ai", "note": "ข้อความทดสอบ"}
+{"id": "s04", "query": "test", "expected_route": "general_ai"}
+{"id": "s05", "query": "เอาดีนายเก่งมั้ย", "expected_route": "general_ai", "note": "คุยเล่น/หยอกผู้ช่วย"}
+{"id": "s06", "query": "ขอบคุณมากครับ ช่วยได้เยอะเลย", "expected_route": "general_ai", "note": "ขอบคุณ/ชม"}
+{"id": "s07", "query": "ทำไมเป็นงี้อ่ะไอ่สัส", "expected_route": "general_ai", "note": "บ่นด้วยคำหยาบ ห้าม decline — CONTRACT §3 สงวน decline ไว้ให้คำขอผิดกฎหมายเท่านั้น"}
+{"id": "s08", "query": "ห่วยแตกมาก ตอบไม่รู้เรื่องเลย", "expected_route": "general_ai", "note": "ตำหนิผู้ช่วย ต้องรับฟังอย่างสุภาพ ไม่ใช่ปฏิเสธ"}
+{"id": "s09", "query": "นายคือใคร ทำอะไรได้บ้าง", "expected_route": "general_ai"}
+{"id": "s10", "query": "555 ตลกดี", "expected_route": "general_ai", "note": "คุยเล่นล้วน ๆ"}
+{"id": "s11", "query": "มีปัญหาครับ", "expected_route": "clarify", "note": "บอกว่ามีปัญหาแต่ไม่บอกว่าเรื่องอะไร — เคสนี้ต้องถามกลับจริง ๆ"}
+{"id": "s12", "query": "ช่วยหน่อย มันใช้ไม่ได้", "expected_route": "clarify", "note": "เส้นแบ่งระหว่างคุยเล่นกับปัญหาที่ข้อมูลไม่พอ"}

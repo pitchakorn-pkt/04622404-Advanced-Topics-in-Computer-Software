@@ -1,0 +1,41 @@
+# ความลับ — ห้ามหลุดเด็ดขาด
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.env.local
+*.tsbuildinfo
+
+# โมเดลและดัชนี — สร้างใหม่ได้ด้วย make ingest ไม่ต้อง commit
+*.joblib
+*.pt
+*.bin
+*.safetensors
+*.pkl
+data/index/
+chroma/
+models/
+hf_cache/
+
+# ผลการรัน
+eval/report*.md
+eval/report*.html
+*.log
+
+# ระบบปฏิบัติการ / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

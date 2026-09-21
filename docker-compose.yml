@@ -1,0 +1,155 @@
+# ระบบ "ช่วยด้วย (ChuayDuay)" — 8 service + postgres
+#
+# หลักคิดของไฟล์นี้
+#   * ทุก service ฟัง 8000 ข้างใน container เหมือนกันหมด แล้วคุยกันด้วย "ชื่อ service"
+#     เช่น http://router:8000 — ห้ามใช้ localhost เพราะแต่ละ container มี localhost ของตัวเอง
+#   * เปิดออกเครื่องจริงแค่ web (3000) กับ api (8000) เท่านั้น
+#     port ไว้ debug 8003-8007 อยู่ใน docker-compose.override.yml ซึ่ง compose อ่านเพิ่มให้เองตอน dev
+#   * depends_on ใช้ condition: service_healthy ไม่ใช่แค่ service_started
+#     เพราะ "container เริ่มแล้ว" ไม่ได้แปลว่า "พร้อมรับ request แล้ว" ตัวที่รอจะยิงไปตอนยังไม่พร้อม
+#   * โมเดลกับดัชนีอยู่ใน named volume ไม่ใช่ใน image — ไม่งั้น build ทุกครั้งจะโหลดใหม่เป็น GB
+
+name: chuayduay
+
+x-py-health: &py-health
+  # ใช้ urllib ของ python เอง เพราะ image python:slim ไม่มี curl ติดมา
+  test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status==200 else 1)"]
+  interval: 10s
+  timeout: 5s
+  retries: 12
+  start_period: 20s
+
+x-common-env: &common-env
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  TZ: ${TZ:-Asia/Bangkok}
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-chuayduay}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chuayduay}
+      POSTGRES_DB: ${POSTGRES_DB:-chuayduay}
+      TZ: ${TZ:-Asia/Bangkok}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-chuayduay} -d ${POSTGRES_DB:-chuayduay}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    deploy:
+      resources:
+        limits: { memory: 512M }
+
+  # ---- ปลายทางของสายเรียก เริ่มพวกนี้ก่อน ----------------------------------
+  engines:
+    build: ./services/04_ai_model_selection
+    env_file: [.env]
+    environment:
+      <<: *common-env
+      SERVICE_NAME: engines
+    volumes:
+      - hf_models:/models
+    healthcheck: *py-health
+    deploy:
+      resources:
+        limits: { memory: 2G }
+
+  retrieval:
+    build: ./services/05_retrieval_knowledge
+    env_file: [.env]
+    environment:
+      <<: *common-env
+      SERVICE_NAME: retrieval
+    volumes:
+      - retrieval_index:/data/index
+      - hf_models:/models        # แชร์แคชโมเดลกับ engines จะได้ไม่โหลดซ้ำสองรอบ
+    healthcheck: *py-health
+    deploy:
+      resources:
+        limits: { memory: 4G }   # ตัวที่กินแรมมากสุด เพราะโหลดโมเดล embedding
+
+  generation:
+    build: ./services/06_llm_generation
+    env_file: [.env]
+    environment:
+      <<: *common-env
+      SERVICE_NAME: generation
+    healthcheck: *py-health
+    deploy:
+      resources:
+        limits: { memory: 1G }
+
+  response-log:
+    build: ./services/07_response_logging
+    env_file: [.env]
+    environment:
+      <<: *common-env
+      SERVICE_NAME: response-log
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck: *py-health
+    deploy:
+      resources:
+        limits: { memory: 512M }
+
+  # ---- ตัวกลาง รอปลายทางพร้อมก่อน ------------------------------------------
+  router:
+    build: ./services/03_ai_router_agent
+    env_file: [.env]
+    environment:
+      <<: *common-env
+      SERVICE_NAME: router
+    depends_on:
+      engines:    { condition: service_healthy }
+      retrieval:  { condition: service_healthy }
+      generation: { condition: service_healthy }
+    healthcheck: *py-health
+    deploy:
+      resources:
+        limits: { memory: 512M }
+
+  api:
+    build: ./services/02_api_backend
+    env_file: [.env]
+    environment:
+      <<: *common-env
+      SERVICE_NAME: api
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:     { condition: service_healthy }
+      router:       { condition: service_healthy }
+      response-log: { condition: service_healthy }
+    healthcheck: *py-health
+    deploy:
+      resources:
+        limits: { memory: 512M }
+
+  # ---- หน้าบ้าน -------------------------------------------------------------
+  web:
+    build:
+      context: ./services/01_web_app
+    environment:
+      <<: *common-env
+      API_URL: ${API_URL:-http://api:8000}   # ใช้ฝั่ง server ของ Next.js เท่านั้น ไม่ใช่ NEXT_PUBLIC_
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    deploy:
+      resources:
+        limits: { memory: 512M }
+
+volumes:
+  pgdata:
+  retrieval_index:
+  hf_models:
