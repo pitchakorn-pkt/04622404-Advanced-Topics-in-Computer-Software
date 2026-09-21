@@ -743,6 +743,34 @@ textarea {
   color: var(--primary);
 }
 
+/* แถวปุ่มใต้คำตอบ — คัดลอก + ให้คะแนน ใช้หน้าตาเดียวกันทั้งแถว */
+.msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.msg-actions .copy {
+  margin-top: 8px;
+}
+
+.rate {
+  padding: 5px 8px;
+}
+
+.rate:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.rate.on {
+  border-color: var(--sage);
+  background: var(--sage-soft);
+  color: var(--primary);
+  opacity: 1;
+}
+
 .stat-row {
   display: flex;
   align-items: baseline;

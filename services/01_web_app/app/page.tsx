@@ -58,6 +58,20 @@ const IconCopy = () => (
     <path d="M15 5.5A2.5 2.5 0 0 0 12.5 3h-6A3.5 3.5 0 0 0 3 6.5v6A2.5 2.5 0 0 0 5.5 15" />
   </svg>
 );
+const IconUp = () => (
+  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6"
+       strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3Z" />
+    <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+  </svg>
+);
+const IconDown = () => (
+  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6"
+       strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3Z" />
+    <path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
+  </svg>
+);
 const IconLogout = () => (
   <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
     <path d="M14 7V5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2M10 12h10m0 0-3-3m3 3-3 3" />
@@ -81,6 +95,20 @@ function linkifyRefs(text: string, msgIndex: number) {
 }
 
 // เวลาแบบ 24 ชั่วโมงตามเครื่องผู้ใช้ เช่น 10:24
+function labelSources(sources: any[]) {
+  // เอกสารยาวถูกตัดเป็นหลาย chunk ทุก chunk จึงมี title เดียวกัน
+  // ถ้าปล่อยไว้หน้าเว็บจะดูเหมือนระบบอ้างเอกสารเดิมซ้ำ ๆ เลยเติมเลขตอนเฉพาะชื่อที่ซ้ำ
+  const total = new Map<string, number>();
+  for (const s of sources) total.set(s.title, (total.get(s.title) ?? 0) + 1);
+  const seen = new Map<string, number>();
+  return sources.map((s) => {
+    if ((total.get(s.title) ?? 0) < 2) return { ...s, label: s.title };
+    const n = (seen.get(s.title) ?? 0) + 1;
+    seen.set(s.title, n);
+    return { ...s, label: `${s.title} (ตอนที่ ${n})` };
+  });
+}
+
 function timeText(iso?: string) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -99,6 +127,7 @@ export default function Chat() {
   const [sideOpen, setSideOpen] = useState(true);
   const [stats, setStats] = useState<any>(null);
   const [copied, setCopied] = useState<number | null>(null);
+  const [rated, setRated] = useState<Record<number, 1 | -1>>({});
   const threadRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -164,6 +193,26 @@ export default function Chat() {
       if (r.ok) setStats(await r.json());
     } catch {
       // ดึงสถิติไม่ได้ก็แค่ไม่โชว์การ์ด ไม่ต้องรบกวนผู้ใช้
+    }
+  }
+
+  async function sendFeedback(i: number, messageId: string, rating: 1 | -1) {
+    if (rated[i]) return;                       // กดได้ครั้งเดียวต่อคำตอบ
+    setRated((r) => ({ ...r, [i]: rating }));   // ขึ้นให้เห็นทันที ไม่ต้องรอเซิร์ฟเวอร์
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message_id: messageId, rating }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+    } catch {
+      // ส่งไม่สำเร็จ ให้ปุ่มกลับมากดได้ใหม่ ไม่ต้องขึ้น error รบกวนกลางบทสนทนา
+      setRated((r) => {
+        const next = { ...r };
+        delete next[i];
+        return next;
+      });
     }
   }
 
@@ -395,10 +444,30 @@ export default function Chat() {
                 )}
 
                 {m.role === "assistant" && !m.isError && (
-                  <button className="copy" onClick={() => copyAnswer(i, m.content)}
-                          title="คัดลอกคำตอบ">
-                    <IconCopy /> {copied === i ? "คัดลอกแล้ว" : "คัดลอก"}
-                  </button>
+                  <div className="msg-actions">
+                    <button className="copy" onClick={() => copyAnswer(i, m.content)}
+                            title="คัดลอกคำตอบ">
+                      <IconCopy /> {copied === i ? "คัดลอกแล้ว" : "คัดลอก"}
+                    </button>
+                    {m.message_id && (
+                      <>
+                        <button className={`copy rate${rated[i] === 1 ? " on" : ""}`}
+                                onClick={() => sendFeedback(i, m.message_id!, 1)}
+                                disabled={!!rated[i]}
+                                aria-label="คำตอบนี้ช่วยได้"
+                                title={rated[i] ? "ขอบคุณสำหรับคะแนน" : "คำตอบนี้ช่วยได้"}>
+                          <IconUp />
+                        </button>
+                        <button className={`copy rate${rated[i] === -1 ? " on" : ""}`}
+                                onClick={() => sendFeedback(i, m.message_id!, -1)}
+                                disabled={!!rated[i]}
+                                aria-label="คำตอบนี้ยังไม่ช่วย"
+                                title={rated[i] ? "ขอบคุณสำหรับคะแนน" : "คำตอบนี้ยังไม่ช่วย"}>
+                          <IconDown />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 )}
 
                 {m.isError && m.retryText && (
@@ -455,10 +524,10 @@ export default function Chat() {
                 {/* 4 ใน 5 route คืน sources ว่าง — ต้องไม่โชว์หัวข้อเปล่า */}
                 {!!m.sources?.length && (
                   <ol className="sources">
-                    {m.sources.map((s: any) => (
+                    {labelSources(m.sources).map((s: any) => (
                       <li key={s.ref} id={`src-${i}-${s.ref}`} style={{ scrollMarginTop: 80 }}>
                         {/* ที่มาของเอกสารเป็นที่อยู่ภายในระบบ กดไปไหนไม่ได้ จึงแสดงเป็นข้อความเฉย ๆ */}
-                        {s.title}
+                        {s.label}
                       </li>
                     ))}
                   </ol>
