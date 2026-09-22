@@ -1,6 +1,6 @@
 # LAB07
 
-_Not started yet._
+_Not started yet._ Assignment: DL-07 Agentic AI System II — AI smart travel & emergency assistant.
 
 | File | |
 |---|---|
