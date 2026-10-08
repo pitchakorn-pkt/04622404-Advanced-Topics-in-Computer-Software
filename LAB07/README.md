@@ -1,3 +1,162 @@
+# LAB07 — Agentic AI System II: rod-mai-rod (team project)
+
+English · [ภาษาไทย](README.th.md)
+
+**Team repository: [pitchakorn-pkt/rod-mai-rod](https://github.com/pitchakorn-pkt/rod-mai-rod)** · live site: https://rod-mai-rod.tntproduction.tech
+
+rod-mai-rod ("will I make it?") is a web app for planning safe road trips in Thailand,
+built by a team of eight as the DL-07 *Agentic AI System II* assignment (AI smart travel
+and emergency assistant). For each trip it checks the route, the weather forecast for the
+hour the car reaches each point, flooding seen by satellite and nearby hazards, then
+decides by rule whether to go, reroute, leave later or avoid the trip. An AI assistant,
+"Nong Qilin", creates and edits trips through chat. It runs as a Next.js front end, six
+Python services and PostgreSQL behind one `docker compose`.
+
+**My part: module 5 — Routing Engine, and from 3 October the project itself.** For the
+first two weeks I owned one service, `services/routing-engine/`. After every module had
+reached `main` (#86), the repository was transferred to my account and I took over the
+whole project: fixing what the team, the lecturer and the people trying the site found
+after the first deploy, adding Google sign-in, releasing every change to `main`, and
+rewriting the documentation. The team's own README, below the line, describes the system
+and its measured results; this section describes what I did.
+
+## What I did
+
+### 1. Module 5 — the routing engine (24 September – 2 October)
+
+Every trip plan starts here. The service asks OSRM for the routes, works out when the car
+will reach each point, and hands those points to risk-decision.
+
+| Pull request | |
+|---|---|
+| [#4](https://github.com/pitchakorn-pkt/rod-mai-rod/pull/4) | real routes from OSRM, with up to three alternatives |
+| [#20](https://github.com/pitchakorn-pkt/rod-mai-rod/pull/20) | a sample point every 20 km along each route, plus every stop, each with its cumulative arrival time |
+| [#23](https://github.com/pitchakorn-pkt/rod-mai-rod/pull/23) | demo mode that reads saved OSRM replies from `fixtures/` and makes no network calls |
+| [#27](https://github.com/pitchakorn-pkt/rod-mai-rod/pull/27) | a detour built by the service itself when the only route is high risk |
+| [#35](https://github.com/pitchakorn-pkt/rod-mai-rod/pull/35) | demo mode accepts a point tapped on the map within 15 km of a saved trip |
+| [#79](https://github.com/pitchakorn-pkt/rod-mai-rod/pull/79) | the route geometry goes to risk-decision, so a flooded road counts only if the route really drives on it |
+
+The parts that took real work:
+
+- **Arrival time per point, not weather at planning time.** A long trip takes hours, so
+  the service walks the full polyline with the haversine distance, drops a point every
+  ~20 km, and splits each leg's duration in proportion to distance. Bangkok to Chiang Mai
+  sends 72 points to risk-decision in one request, all routes together.
+- **The public OSRM server is slow from Thailand.** Asking for `polyline` instead of
+  GeoJSON cut one reply from 277 KB to 43 KB. A 47-second plan seen during integration
+  came from the HTTP timeout counting each read separately, so the 12-second limit is now
+  a real total, enforced with a thread pool. When it runs out the download continues in
+  the background and fills the cache (keyed on coordinates rounded to 3 decimals) for the
+  next request; HTTP 429 becomes a clear `RATE_LIMITED` error.
+- **A detour when OSRM offers nothing else.** If the only route is HIGH risk, the service
+  pushes a waypoint 50 km to either side of the risky point and keeps the fastest result
+  that stays more than 20 km away from it and is at most 1.5 times slower, dropping
+  waypoints outside Thailand. The whole request is held to a 42-second budget because
+  api-backend waits 45, and a detour is only tried while enough of that budget is left.
+
+The service has 55 pytest tests, all running on the saved fixtures.
+
+### 2. Took over the project and fixed what came back from the first deploy (3–6 October)
+
+After the first deploy, feedback came from three places: the team, the lecturer, and
+people trying the site. I worked through it on one branch, one problem per commit (16
+commits), and released it as [#89](https://github.com/pitchakorn-pkt/rod-mai-rod/pull/89)
+→ `main` [#90](https://github.com/pitchakorn-pkt/rod-mai-rod/pull/90), then the chat
+fixes and Google sign-in as [#91](https://github.com/pitchakorn-pkt/rod-mai-rod/pull/91)
+and [#92](https://github.com/pitchakorn-pkt/rod-mai-rod/pull/92) →
+[#93](https://github.com/pitchakorn-pkt/rod-mai-rod/pull/93).
+
+- **The site froze with three users.** I measured layer by layer, as the lecturer asked —
+  server, backend, database, AI — on the deploy image limited to 1 CPU and 2 GB. The
+  database was not the problem; the CPU was full and api-backend used 82% of it. Two
+  causes: every call to another service built a new HTTP client and reloaded the SSL
+  certificates (~110 ms of CPU each, nine times per home page), and bcrypt at cost 12 took
+  300 ms of CPU per login. One shared client per service and bcrypt cost 10 (old hashes
+  are upgraded at the next login) brought **20 simultaneous users from 33.8 s to 3.9 s**
+  per full round.
+- **The whole system needs ~650 MB of RAM**, more than the 512 MB Render plan, so hosting
+  moved to `docker compose` on a teammate's 2 GB server and I removed the Render setup.
+- **The chat said things that were not true.** It answered "trip created" without
+  creating one, moved a trip when asked "what if I moved it?", created the same trip twice,
+  ended the return leg in Bangkok instead of where the trip started, and ignored GPS.
+  Each is now enforced in code rather than left to the prompt: a trip is reported as
+  created only after the tool really succeeded, what-if questions never edit, duplicates
+  are blocked, the return leg is the outbound leg reversed exactly, and GPS is the start
+  in both the form and the chat. Chat test sets: **30/32 → 32/32** and **33/34 → 34/34**.
+- **Safety advice was wrong** — it told users to stay in the car as water rose — because
+  the model answered from its own knowledge and the documents were too thin to retrieve.
+  Safety answers now come from the documents only, the documents went from 7 to 10, and
+  retrieval returns whole pieces of advice. Over 12 safety questions the share of expected
+  points present in what was retrieved went from **38% to 80%**.
+- **Sign in with Google** — the ID token is checked against Google's public keys, the
+  audience must be our app and the e-mail verified; the same e-mail opens the existing
+  account. Google requires `/privacy` and `/terms` before an app goes into production, so I
+  wrote those too, along with display name and password change.
+- **Highway closures from the Department of Highways** (HDMS), turned into hazard pins so
+  risk-decision counts them only where the route passes. On 4 October it found 158
+  incidents and turned a trip through Nakhon Sawan into "avoid". On the live server it
+  found nothing: HDMS answers only Thai IP addresses and the server is abroad. I turned it
+  off by default (#104) and made the chat mention closures only when there is real data.
+- **The front end**: the real location instead of a silent Bangkok fallback, one-language
+  map labels, university abbreviations in place search, light-theme contrast measured on
+  every page, self-hosted Noto Sans Thai (the build used to break fetching it), and on
+  phones a full-screen map, larger layer controls, menus that stay on screen and no
+  pull-to-refresh (#104 → #105).
+
+### 3. Releases, documentation and the presentation (4–8 October)
+
+Every change went `dev` → `main` through a pull request with CI passing; a teammate runs
+the server and deploys `main`. After each deploy I checked the live site end to end on
+three screen sizes (166/166 checks on 6 October). I rewrote the team README so that it
+matches the system as it is (#94–#103): the original team table kept as it was,
+a maintenance note, the problems met during development with their causes, and the
+current limits each with what it would take to lift them. After the presentation on
+7 October I added screenshots of the live site, the architecture diagram, the reasons
+behind the design and how each number was measured (#108 → #109). Outside the
+repository I made the team's 20-slide presentation and a 39-slide technical deck, one
+part per module, for answering the lecturer's questions.
+
+## Timeline
+
+| Date | |
+|---|---|
+| 24 Sep | module 5: OSRM routes (#4), 20 km sample points (#20), demo mode (#23), detour (#27), map-tap tolerance (#35) |
+| 2 Oct | route geometry to risk-decision (#79) |
+| 3 Oct | repository transferred to my account; added as code owner (#87, #88) |
+| 4 Oct | post-deploy fixes, highway closures, safety answers (#89 → #90); chat fixes, GPS start, Google sign-in (#91, #92 → #93); README and docs (#94–#103) |
+| 6 Oct | phones and DOH feed off by default (#104 → #105), README refresh (#106 → #107), live site checked |
+| 7 Oct | presentation |
+| 8 Oct | screenshots, diagram, design reasons, measurement details (#108 → #109) |
+
+Of the 107 merged pull requests, 27 are mine — 6 for module 5 and 21 after I took over —
+and I merged 23. On `main`, 46 of the 145 non-merge commits are mine; the merge commits
+under the name `CHAMP` are also mine (my GitHub display name).
+
+## What this does not establish
+
+- The 33.8 s → 3.9 s load result was measured on my machine with the same image and the
+  same CPU and memory limits, not on the live site, and plans and chat in that run were
+  helped by the route cache.
+- The 38% → 80% figure counts keywords of the expected points in the retrieved text; it
+  measures coverage, not whether a final answer is correct.
+- Chat results depend on the model and on the hazard data of the day; a rerun on another
+  day may not match exactly.
+- Highway closures are off on the live site, so the 158-incident result applies only to a
+  server inside Thailand.
+
+## What is in this folder
+
+This folder is the whole team repository, not only my part. Module 5 is
+[`services/routing-engine/`](services/routing-engine/). What I changed after taking over
+is spread across `apps/web/`, `services/api-backend/`, `services/assistant-agent/`,
+`services/safety-knowledge/`, `services/weather-disaster/` and the docs; the commit for
+each problem is listed in the pull requests above. Every other folder belongs to the
+member named in the team table below (section 7). How to run it is in section 4 below.
+
+Pulled with `git subtree` from [pitchakorn-pkt/rod-mai-rod](https://github.com/pitchakorn-pkt/rod-mai-rod), branch `main`.
+
+---
+
 # รอดไม่รอด (rod-mai-rod)
 
 เว็บวางแผนเดินทางในประเทศไทยให้ปลอดภัย เช็กเส้นทาง พยากรณ์อากาศ ณ เวลาที่รถไปถึงแต่ละจุด น้ำท่วมจากดาวเทียม และภัยพิบัติ ก่อนออกเดินทาง มีผู้ช่วย AI "น้องกิเลน" สร้างและแก้ทริปผ่านแชทได้
