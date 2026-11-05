@@ -12,28 +12,25 @@ The course follows the official course description and extends it with modern AI
 - 116730462035-0 Pitchakorn Phuadkhunthod
 - Computer Engineering Department, Engineering Faculty, RMUTT
 
-## Team Repository
-- Please check out this repository for team project https://github.com/Automatic28m/Advance-AI-RAG
-
 ## Course Work
 
 Each lab lives in its own folder, `LAB01` through `LAB10`, with the final project in `Final-Project/`.
 
 | Lab | My part | Folder |
 |---|---|---|
-| LAB01 | Cleaning + Normalization (LLM data pipeline, stage 2), then a local embedding provider and a free answering model so the pipeline runs without a paid key — see the timeline in [`LAB01/README.md`](LAB01/README.md) | [`LAB01/`](LAB01/) |
-| LAB02 | RAG retrieval system over a Thai food Q&A dataset, built step by step from loading to FAISS search — see [`LAB02/README.md`](LAB02/README.md) | [`LAB02/`](LAB02/) |
-| LAB03 | no lab assigned — break in the course schedule | [`LAB03/`](LAB03/) |
-| LAB04 | Full RAG system over a Thai Q&A corpus on everyday phone and computer problems, with hybrid retrieval, reranking, and a measured comparison of Thai-language retrieval settings — see [`LAB04/README.md`](LAB04/README.md) | [`LAB04/`](LAB04/) |
-| LAB05 | Collected the problem write-ups from every system built in this course — 21 problems from `LAB01`, `LAB02` and `LAB04` in one folder, with the repetitions across them read side by side — see [`LAB05/README.md`](LAB05/README.md) | [`LAB05/`](LAB05/) |
-| LAB06 | Team lead and module 08 (Docker / Integration) of ChuayDuay, an eight-person agentic RAG system for Thai phone and computer questions: the API contract, a running skeleton of all eight services, the Discord server and GitHub notifications, reviewing and merging every pull request, and the end-to-end tests — see [`LAB06/README.md`](LAB06/README.md); team repository [pitchakorn-pkt/chuayduay](https://github.com/pitchakorn-pkt/chuayduay) | [`LAB06/`](LAB06/) |
-| LAB07 | Module 5 (Routing Engine) of rod-mai-rod, an eight-person trip-safety web app for Thailand with an AI assistant: routes from OSRM with arrival times every 20 km and detours around high-risk points; then, after the repository moved to my account, the whole project — load fixes, truthful chat, safety answers from documents, Google sign-in, releases and documentation — see [`LAB07/README.md`](LAB07/README.md); team repository [pitchakorn-pkt/rod-mai-rod](https://github.com/pitchakorn-pkt/rod-mai-rod) | [`LAB07/`](LAB07/) |
-| LAB08 – LAB10 | not started yet | [`LAB08/`](LAB08/) … [`LAB10/`](LAB10/) |
-| Final Project | Back end and security of SENTINEL AI, a two-person local agentic SOC that guards a real VPS: detection rules, a three-agent LangGraph investigation, a policy gate the model cannot bypass, automatic blocks only where a rule is certain, a hash-chained audit log, the model test sets v3–v5 and the fixes found by attacking the live server — see [`Final-Project/README.md`](Final-Project/README.md); team repository [Mrbeer19/SENTINEL-AI](https://github.com/Mrbeer19/SENTINEL-AI) | [`Final-Project/`](Final-Project/) |
+| LAB01 | Cleaning + Normalization (LLM data pipeline, stage 2), then a local embedding provider and a free answering model so the pipeline runs without a paid key. See the timeline in [`LAB01/README.md`](LAB01/README.md); team repository [Automatic28m/Advance-AI-RAG](https://github.com/Automatic28m/Advance-AI-RAG) | [`LAB01/`](LAB01/) |
+| LAB02 | RAG retrieval system over a Thai food Q&A dataset, built step by step from loading to FAISS search. See [`LAB02/README.md`](LAB02/README.md) | [`LAB02/`](LAB02/) |
+| LAB03 | no lab assigned, a break in the course schedule | [`LAB03/`](LAB03/) |
+| LAB04 | Full RAG system over a Thai Q&A corpus on everyday phone and computer problems, with hybrid retrieval, reranking, and a measured comparison of Thai-language retrieval settings. See [`LAB04/README.md`](LAB04/README.md) | [`LAB04/`](LAB04/) |
+| LAB05 | Collected the problem write-ups from every system built in this course: 21 problems from `LAB01`, `LAB02` and `LAB04` in one folder, with the repetitions across them read side by side. See [`LAB05/README.md`](LAB05/README.md) | [`LAB05/`](LAB05/) |
+| LAB06 | Team lead and module 08 (Docker / Integration) of ChuayDuay, an eight-person agentic RAG system for Thai phone and computer questions: the API contract, a running skeleton of all eight services, the Discord server and GitHub notifications, reviewing and merging every pull request, and the end-to-end tests. See [`LAB06/README.md`](LAB06/README.md); team repository [pitchakorn-pkt/chuayduay](https://github.com/pitchakorn-pkt/chuayduay) | [`LAB06/`](LAB06/) |
+| LAB07 | Module 5 (Routing Engine) of rod-mai-rod, an eight-person trip-safety web app for Thailand with an AI assistant: routes from OSRM with arrival times every 20 km and detours around high-risk points; then, after the repository moved to my account, the whole project: load fixes, truthful chat, safety answers from documents, Google sign-in, releases and documentation. See [`LAB07/README.md`](LAB07/README.md); team repository [pitchakorn-pkt/rod-mai-rod](https://github.com/pitchakorn-pkt/rod-mai-rod) | [`LAB07/`](LAB07/) |
+| LAB08 to LAB10 | not started yet | [`LAB08/`](LAB08/) … [`LAB10/`](LAB10/) |
+| Final Project | Back end and security of SENTINEL AI, a two-person local agentic SOC that guards a real VPS: detection rules, a three-agent LangGraph investigation, a policy gate the model cannot bypass, automatic blocks only where a rule is certain, a hash-chained audit log, the model test sets v3-v5 and the fixes found by attacking the live server. See [`Final-Project/README.md`](Final-Project/README.md); team repository [Mrbeer19/SENTINEL-AI](https://github.com/Mrbeer19/SENTINEL-AI) | [`Final-Project/`](Final-Project/) |
 
 Each finished lab has its own README covering the same four things: what was changed
 from the lab template, how to run it, what came out of running it, and what the lab does
-not establish. The last of those is the reason the reports differ in length — the
+not establish. The last of those is the reason the reports differ in length: the
 results section grows only where there are numbers to put in it.
 
 A lab that is my own write-up also has a Thai version, `README.th.md`, linked from the
@@ -43,7 +40,7 @@ installs from its own `requirements.txt` and is meant to be run from inside that
 `LAB01`, `LAB02` and `LAB04` each also carry a `problems/` folder: the problems found in
 that system, one per stage of its pipeline, with the cause, how to check for it, and either
 the fix applied or the reason none was. Each problem has a script that reproduces it from
-the artefacts already committed — `cd LAB0x/problems && python main.py 0` runs them all.
+the artefacts already committed: `cd LAB0x/problems && python main.py 0` runs them all.
 Twenty-one problems in total, and most of them produce no error message at all.
 `LAB05` gathers all three sets in one place and reads them across each other; `cd
 LAB05/problems && python main.py 0` runs all twenty-one in one go.

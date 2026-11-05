@@ -1,4 +1,4 @@
-# Final Project — SENTINEL AI: a local agentic SOC (team project)
+# Final Project: SENTINEL AI, a local agentic SOC (team project)
 
 English · [ภาษาไทย](README.th.md)
 
@@ -13,7 +13,7 @@ request receiving HTTP 403 proves that the block works. It was built by a team o
 FastAPI, SQLite and LangGraph on the back end, a React dashboard, and Qwen 3.5 4B
 fine-tuned with QLoRA and served by Ollama.
 
-**My part: the back end and its security, the model test sets v3–v5, and testing.**
+**My part: the back end and its security, the model test sets v3-v5, and testing.**
 Prapakorn Phithamma built the dashboard, fine-tuned the model, and set up the VPS, Caddy,
 the bridge and the sensor. The team's README, below the line, describes the system and
 every measured result. This section describes what I did.
@@ -22,7 +22,7 @@ every measured result. This section describes what I did.
 
 ## What I did
 
-### 1. The back end that everything else runs on (16–19 October)
+### 1. The back end that everything else runs on (16-19 October)
 
 | Pull request | |
 |---|---|
@@ -66,7 +66,7 @@ After ten automatic blocks in an hour, new proposals wait for a person again. Th
 off by default. [#43](https://github.com/Mrbeer19/SENTINEL-AI/pull/43) fixed a scan that
 first hit a 404 rule and so never qualified for the automatic path.
 
-### 4. Bugs found by rehearsing against the real server (30 October – 4 November)
+### 4. Bugs found by rehearsing against the real server (30 October to 4 November)
 
 Each fix has a test that fails when the fix is removed.
 
@@ -85,14 +85,14 @@ Each fix has a test that fails when the fix is removed.
 - **Login failed silently** because the shell expanded the `$` in the password hash
   ([#26](https://github.com/Mrbeer19/SENTINEL-AI/pull/26)).
 
-### 5. Checking the model, not only training it (20 October – 3 November)
+### 5. Checking the model, not only training it (20 October to 3 November)
 
 I wrote the generators for the held-out test sets v3, v4 and v5, separately from the
 training data. v5 asks the question that decided how the system makes decisions: of 29 cases
 that a rule catches but should not be blocked, how many does the model let through? The
 answer was almost none, for every model. I also wrote the check that compares each model
 explanation with its log. This check is why we kept r2 over r3: r3 scored slightly higher,
-but 43–45% of its explanations stated facts that were not in the log. I ran the benchmarks
+but 43-45% of its explanations stated facts that were not in the log. I ran the benchmarks
 on the MacBook Pro M5 and later tested the M5 as the backup model server for the VPS.
 
 ### 6. Reviews, documents and the presentation
@@ -109,7 +109,7 @@ a glossary, and the speaker notes.
 |---|---|
 | 16 Oct | repository started |
 | 19 Oct | back end v0.2 (#4), cross-site protection (#6), three-agent LangGraph (#8) |
-| 20–21 Oct | fine-tuned r2 benchmarked on the M5; held-out set v3 |
+| 20-21 Oct | fine-tuned r2 benchmarked on the M5; held-out set v3 |
 | 30 Oct | model name fix (#12), lab-network approval fix (#14) |
 | 31 Oct | web detection (#24), HTTP flood (#25), password hash fix (#26) |
 | 3 Nov | system deployed on the VPS; held-out sets renamed to their formal names (#36) |
@@ -123,7 +123,7 @@ are mine. The back-end tests grew from 317 at #4 to 499 at the release.
 ## What this does not establish
 
 - Every model test set is synthetic. v1 comes from the same generator as the training
-  data, and v3–v6 do not, but none is labelled real traffic. The 14 real attacks seen
+  data, and v3-v6 do not, but none is labelled real traffic. The 14 real attacks seen
   on the VPS were not labelled.
 - No model, fine-tuned or not, filtered out the blocks that should not happen. The model
   adds an investigation and an explanation for the administrator. It does not make the
@@ -140,7 +140,7 @@ This folder is the whole team repository, not only my part. My code is under
 [`backend/`](backend/): `app.py`, `detection.py` and `rules/`, `agent.py`, `policy.py`,
 `admin_auth.py`, `preflight.py` and `tests/`. Also mine are
 [`docs/api-contract.md`](docs/api-contract.md), [`docs/threat-model.md`](docs/threat-model.md)
-and `datasets/make_cases_v3.py`–`make_cases_v5.py`. Every other folder belongs to
+and `datasets/make_cases_v3.py` to `make_cases_v5.py`. Every other folder belongs to
 Prapakorn, as listed in the team table below. How to run it is in section 13 below.
 
 Pulled with `git subtree` from [Mrbeer19/SENTINEL-AI](https://github.com/Mrbeer19/SENTINEL-AI), branch `main` (`5125308`).
