@@ -15,6 +15,7 @@ The course follows the official course description and extends it with modern AI
 ## Course Work
 
 Each lab lives in its own folder, `LAB01` through `LAB10`, with the final project in `Final-Project/`.
+The labs ended at `LAB07`; `LAB03` and `LAB08` to `LAB10` had no lab assigned and are kept only so the numbering stays aligned.
 
 | Lab | My part | Folder |
 |---|---|---|
@@ -25,7 +26,7 @@ Each lab lives in its own folder, `LAB01` through `LAB10`, with the final projec
 | LAB05 | Collected the problem write-ups from every system built in this course: 21 problems from `LAB01`, `LAB02` and `LAB04` in one folder, with the repetitions across them read side by side. See [`LAB05/README.md`](LAB05/README.md) | [`LAB05/`](LAB05/) |
 | LAB06 | Team lead and module 08 (Docker / Integration) of ChuayDuay, an eight-person agentic RAG system for Thai phone and computer questions: the API contract, a running skeleton of all eight services, the Discord server and GitHub notifications, reviewing and merging every pull request, and the end-to-end tests. See [`LAB06/README.md`](LAB06/README.md); team repository [pitchakorn-pkt/chuayduay](https://github.com/pitchakorn-pkt/chuayduay) | [`LAB06/`](LAB06/) |
 | LAB07 | Module 5 (Routing Engine) of rod-mai-rod, an eight-person trip-safety web app for Thailand with an AI assistant: routes from OSRM with arrival times every 20 km and detours around high-risk points; then, after the repository moved to my account, the whole project: load fixes, truthful chat, safety answers from documents, Google sign-in, releases and documentation. See [`LAB07/README.md`](LAB07/README.md); team repository [pitchakorn-pkt/rod-mai-rod](https://github.com/pitchakorn-pkt/rod-mai-rod) | [`LAB07/`](LAB07/) |
-| LAB08 to LAB10 | not started yet | [`LAB08/`](LAB08/) … [`LAB10/`](LAB10/) |
+| LAB08 to LAB10 | no lab assigned: the labs ended at `LAB07` and the course moved on to the final project | [`LAB08/`](LAB08/) … [`LAB10/`](LAB10/) |
 | Final Project | Back end and security of SENTINEL AI, a two-person local agentic SOC that guards a real VPS: detection rules, a three-agent LangGraph investigation, a policy gate the model cannot bypass, automatic blocks only where a rule is certain, a hash-chained audit log, the model test sets v3-v5 and the fixes found by attacking the live server. See [`Final-Project/README.md`](Final-Project/README.md); team repository [Mrbeer19/SENTINEL-AI](https://github.com/Mrbeer19/SENTINEL-AI) | [`Final-Project/`](Final-Project/) |
 
 Each finished lab has its own README covering the same four things: what was changed
